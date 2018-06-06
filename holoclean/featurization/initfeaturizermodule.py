@@ -5,7 +5,7 @@ from featurizermodule import Featurizer
 
 class InitFeaturizer(Featurizer):
 
-    def __init__(self, N, L, M=None,  update_flag=False, session=None, clean=1):
+    def __init__(self, N, L, update_flag=False, session=None, clean=1,M=None ):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -20,8 +20,11 @@ class InitFeaturizer(Featurizer):
             self.M = M
         self.tensor = None
 
-        self.sesssion = session
+        self.session = session
         self.id = "SignalInit"
+        self.dataset = self.session.dataset
+        self.dataengine = self.session.holo_env.dataengine
+
         self.table_name = self.dataset.table_specific_name('Init')
         self.clean = clean
 

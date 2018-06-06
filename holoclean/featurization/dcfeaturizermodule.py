@@ -6,7 +6,7 @@ from featurizermodule import Featurizer
 
 class DCFeaturizer(Featurizer):
 
-    def __init__(self, N, L, M=None, update_flag=False, denial_constraints=None, session=None, clean=1):
+    def __init__(self, N, L, update_flag=False, session=None, clean=1, denial_constraints=None, M=None ):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -23,9 +23,16 @@ class DCFeaturizer(Featurizer):
         self.denial_constraints = denial_constraints
         self.session = session
         self.parser = session.parser
+        self.dataset = self.session.dataset
+        self.dataengine = self.session.holo_env.dataengine
+        self.spark_session = self.session.holo_env.spark_session
+
+
         self.table_name = self.dataset.table_specific_name('Init')
         self.dc_objects = session.dc_objects
         self.clean = clean
+
+
 
     def forward(self):
         """
