@@ -21,6 +21,11 @@ class Featurizer(nn.Module):
         self.L = L
         self.tensor = None
 
+        # These values must be overridden in subclass
+        self.offset = 0  # offset on the feature_id_map
+        self.id = 'Base'
+        self.count = 0
+
     def forward(self):
         """
         Forward step of the featurizer

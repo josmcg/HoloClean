@@ -23,6 +23,11 @@ from global_variables import GlobalVariables
 from learning.softmax import SoftMax
 from learning.accuracy import Accuracy
 
+from featurization.initfeaturizermodule import InitFeaturizer
+from featurization.cooccurencefeaturizermodule import CooccurFeaturizer
+from featurization.dcfeaturizermodule import DCFeaturizer
+
+
 
 # Defining arguments for HoloClean
 arguments = [
@@ -417,6 +422,21 @@ class Session:
 
         return clean, dk
 
+    def testing(self):
+        update_flag = False
+        #dummy dimensions need to change
+        init_signal = InitFeaturizer(10000, 10, update_flag, self, 1 ,1)
+        tensor = init_signal()
+
+        dc_signal = DCFeaturizer(10000, 10, update_flag, self, 1,self.Denial_constraints,  70)
+        tensor1 = dc_signal()
+
+        coo_signal = CooccurFeaturizer(10000, 10, update_flag, self, 1, 70)
+        tensor2 = coo_signal()
+
+
+        return
+
     def repair(self):
         """
         Repairs the initial data includes pruning, featurization, and softmax
@@ -437,6 +457,8 @@ class Session:
             self.holo_env.logger.info("Total  pruning time:"+str(end - start))
             print log
             start = time.time()
+
+        self.testing()
 
         init_signal = SignalInit(self)
         self._add_featurizer(init_signal)

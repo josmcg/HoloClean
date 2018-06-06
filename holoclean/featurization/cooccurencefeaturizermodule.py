@@ -6,7 +6,7 @@ from featurizermodule import Featurizer
 
 class CooccurFeaturizer(Featurizer):
 
-    def __init__(self, N, L, M=None,  update_flag=False, session=None, clean=1):
+    def __init__(self, N, L, update_flag=False, session=None, clean=1,M=None ):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -35,8 +35,10 @@ class CooccurFeaturizer(Featurizer):
         self.threshold = self.pruning_object.threshold1
         self.direct_insert = True
         self.clean = clean
+        self.dataengine = self.session.holo_env.dataengine
 
-        self.get_feature_id_map(clean)
+
+        self.get_feature_id_map()
 
 
 
