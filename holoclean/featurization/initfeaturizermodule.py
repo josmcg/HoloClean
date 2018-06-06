@@ -1,9 +1,11 @@
 import torch.nn as nn
 import torch
+from featurizermodule import Featurizer
 
-class Featurizer(nn.Module):
 
-    def __init__(self, n, l, f=1, update_flag=False, session=None, clean=1):
+class InitFeaturizer(Featurizer):
+
+    def __init__(self, N, L, M=None,  update_flag=False, session=None, clean=1):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -13,11 +15,9 @@ class Featurizer(nn.Module):
         need be updated
 
         """
-        super(Featurizer, self).__init__()
-        self.update_flag = update_flag
-        self.N = n
-        self.L = l
-        self.M = f-1
+        super(InitFeaturizer, self).__init__(N, L, update_flag)
+        if M is not None:
+            self.M = M
         self.tensor = None
 
         self.sesssion = session

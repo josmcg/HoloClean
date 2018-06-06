@@ -1,11 +1,12 @@
 import torch.nn as nn
 import torch
 from holoclean.global_variables import GlobalVariables
+from featurizermodule import Featurizer
 
 
-class CooccurFeaturizer(nn.Module):
+class CooccurFeaturizer(Featurizer):
 
-    def __init__(self, n, l, f=1, update_flag=False, session= None):
+    def __init__(self, N, L, M=None,  update_flag=False, session=None, clean=1):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -15,11 +16,10 @@ class CooccurFeaturizer(nn.Module):
         need be updated
 
         """
-        super(CooccurFeaturizer, self).__init__()
+        super(CooccurFeaturizer, self).__init__(N, L, update_flag)
         self.session = session
-        self.update_flag = update_flag
-        self.N = n
-        self.L = l
+        if M is not None:
+            self.M = M
         self.id = "SignalCooccur"
         self.offset = self.session.feature_count
         self.index_name = GlobalVariables.index_name
@@ -34,8 +34,9 @@ class CooccurFeaturizer(nn.Module):
         self.domain_stats = self.pruning_object.domain_stats
         self.threshold = self.pruning_object.threshold1
         self.direct_insert = True
+        self.clean = clean
 
-        self.get_feature_id_map(1)
+        self.get_feature_id_map(clean)
 
 
 
@@ -99,7 +100,7 @@ class CooccurFeaturizer(nn.Module):
 
         return self.tensor
 
-    def get_feature_id_map(self, clean=1):
+    def get_feature_id_map(self):
         """
         Adding co-occur feature
 
@@ -108,28 +109,30 @@ class CooccurFeaturizer(nn.Module):
 
         :return list
         """
-        if clean:
-            self.offset = self.session.feature_count
-            self.attribute_feature_id = {}
-            feature_id_list = []
-            for attribute in self.dirty_cells_attributes:
-                self.count += 1
-                self.attribute_feature_id[attribute] = self.count
+
+        self.offset = self.session.feature_count
+        self.attribute_feature_id = {}
+        feature_id_list = []
+        for attribute in self.dirty_cells_attributes:
+            self.count += 1
+            self.attribute_feature_id[attribute] = self.count
+            if self.clean:
+                # if clean add signal fo Feature_id_map
                 feature_id_list.append(
                     [self.count + self.offset, attribute, 'Cooccur',
                      'Cooccur'])
-            feature_df = self.session.holo_env.spark_session.createDataFrame(
-                feature_id_list,
-                self.session.dataset.attributes['Feature_id_map']
-            )
-            self.dataengine.add_db_table(
-                'Feature_id_map',
-                feature_df,
-                self.session.dataset,
-                append=1
-            )
-            self.session.feature_count += self.count
-        return []
+                feature_df = self.session.holo_env.spark_session.createDataFrame(
+                    feature_id_list,
+                    self.session.dataset.attributes['Feature_id_map']
+                )
+                self.dataengine.add_db_table(
+                    'Feature_id_map',
+                    feature_df,
+                    self.session.dataset,
+                    append=1
+                )
+                self.session.feature_count += self.count
+        return
 
 
 
