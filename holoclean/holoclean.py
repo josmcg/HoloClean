@@ -472,7 +472,7 @@ class Session:
         # Trying to infer or to learn catch errors when tensors are none
 
         try:
-            # self._ds_featurize(clean=1)
+            self._ds_featurize(clean=1)
 
             if self.holo_env.verbose:
                 end = time.time()
@@ -500,7 +500,7 @@ class Session:
 
         try:
 
-            # self._ds_featurize(clean=0)
+            self._ds_featurize(clean=0)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Test Featurization: ' + str(end - start) + '\n'
@@ -509,7 +509,7 @@ class Session:
                     info('Time for Test Featurization dk: ' + str(end - start))
                 start = time.time()
 
-            Y = soft.predict(soft.model, self.X_testing,
+            Y = soft.predict(soft.model,
                              soft.setupMask(0, self.N, self.L))
             soft.save_prediction(Y)
             if self.holo_env.verbose:
