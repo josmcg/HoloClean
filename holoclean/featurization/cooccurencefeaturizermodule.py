@@ -40,11 +40,10 @@ class CooccurFeaturizer(Featurizer):
 
         self.get_feature_id_map()
 
-
-
-
         self.M = self.count
         self.tensor = None
+        if not self.update_flag:
+            self.create_tensor()
 
     def forward(self):
         """

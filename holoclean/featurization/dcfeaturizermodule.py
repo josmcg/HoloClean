@@ -20,6 +20,7 @@ class DCFeaturizer(Featurizer):
         if M is not None:
             self.M = M
         self.tensor = None
+        self.id = "SignalDC"
         self.denial_constraints = denial_constraints
         self.session = session
         self.parser = session.parser
@@ -30,7 +31,8 @@ class DCFeaturizer(Featurizer):
 
         self.table_name = self.dataset.table_specific_name('Init')
         self.dc_objects = session.dc_objects
-        clean = clean
+        if not self.update_flag:
+            self.create_tensor()
 
 
 
@@ -53,6 +55,7 @@ class DCFeaturizer(Featurizer):
         This method creates the tensor for the feature
         """
         self.execute_query(clean)
+        self.M = self.count
         if clean:
             tensor = torch.zeros(self.N, self.M, self.L)
         else:
@@ -231,6 +234,7 @@ class DCFeaturizer(Featurizer):
                 self.dataengine.add_db_table('Feature_id_map',
                                              df_feature_map_dc, self.dataset, 1)
                 self.session.feature_count += count
+
 
         self.count = len(dc_queries)
         table_name = self.id + str(clean)

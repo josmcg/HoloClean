@@ -18,6 +18,8 @@ class InitFeaturizer(Featurizer):
         super(InitFeaturizer, self).__init__(N, L, update_flag)
         if M is not None:
             self.M = M
+        else:
+            self.M = 1
         self.tensor = None
 
         self.session = session
@@ -26,7 +28,9 @@ class InitFeaturizer(Featurizer):
         self.dataengine = self.session.holo_env.dataengine
 
         self.table_name = self.dataset.table_specific_name('Init')
-        clean = clean
+
+        if not self.update_flag:
+            self.create_tensor()
 
 
     def forward(self):

@@ -458,7 +458,7 @@ class Session:
             print log
             start = time.time()
 
-        self.testing()
+        #self.testing()
 
         '''
         init_signal = SignalInit(self)
@@ -512,8 +512,8 @@ class Session:
                       exc_info=e)
 
         try:
-
-            self._ds_featurize(clean=0)
+            self._create_dimensions(0)
+            # self._ds_featurize(clean=0)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Test Featurization: ' + str(end - start) + '\n'
