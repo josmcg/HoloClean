@@ -69,15 +69,21 @@ class LogReg(torch.nn.Module):
 
         self._setup_weights()
 
-    def forward(self, X, index, mask):
+    def forward(self, index, mask):
         """
         Runs the forward pass of our logreg.
-        :param X: values of the features
+        :param data:
         :param index: indices to mask at
         :param mask: tensor to remove possibility of choosing unused class
         :return: output - X * W after masking
         """
-
+        X = None
+        for featurizer in self.featurizers:
+            sub_tensor = featurizer.forward()
+            if X is none:
+                X = sub_tensor
+            else:
+                X = torch.concat((X,sub_tensor),1)
         # Reties the weights - need to do on every pass
 
         self.concat_weights()
@@ -112,7 +118,7 @@ class LogReg(torch.nn.Module):
 
 class SoftMax:
 
-    def __init__(self, session, X_training):
+    def __init__(self, session):
         """
         Constructor for our softmax model
         :param X_training: x tensor used for training the model
@@ -140,7 +146,6 @@ class SoftMax:
         self.testL = None
 
         # pytorch tensors
-        self.X = X_training
         self.mask = None
         self.testmask = None
         self.setupMask()
@@ -162,76 +167,6 @@ class SoftMax:
             self.Y[value.vid - 1, 0] = value.domain_id - 1
         self.grdt = self.Y.numpy().flatten()
         return
-
-    # Will create the X-value tensor of size nxmxl
-    def _setupX(self, sparse=0):
-        """
-        Initializes an X tensor of features for prediction
-        :param sparse: 0 if dense tensor, 1 if sparse
-        :return: Null
-        """
-        feature_table = self .dataengine.get_table_to_dataframe(
-            "Feature_clean", self.dataset).collect()
-        if sparse:
-            coordinates = torch.LongTensor()
-            values = torch.FloatTensor([])
-            for factor in feature_table:
-                coordinate = torch.LongTensor([[int(factor.vid) - 1],
-                                               [int(factor.feature) - 1],
-                                               [int(factor.assigned_val) - 1]])
-                coordinates = torch.cat((coordinates, coordinate), 1)
-                value = factor['count']
-                values = torch.cat((values, torch.FloatTensor([value])), 0)
-            self.X = torch.sparse\
-                .FloatTensor(coordinates, values,
-                             torch.Size([self.N, self.M, self.L]))
-        else:
-            self.X = torch.zeros(self.N, self.M, self.L)
-            for factor in feature_table:
-                self.X[factor.vid - 1, factor.feature - 1,
-                       factor.assigned_val - 1] = factor['count']
-        return
-
-    def setuptrainingX(self, sparse=0):
-        """
-        Initializes an X tensor of features for training
-        :param sparse: 0 if dense tensor, 1 if sparse
-        :return: x tensor of features
-        """
-        dataframe_offset = self.dataengine.get_table_to_dataframe(
-            "Dimensions_dk", self.dataset)
-        list = dataframe_offset.collect()
-        dimension_dict = {}
-        for dimension in list:
-            dimension_dict[dimension['dimension']] = dimension['length']
-
-        # X Tensor Dimensions (N * M * L)
-        self.testM = dimension_dict['M']
-        self.testN = dimension_dict['N']
-        self.testL = dimension_dict['L']
-
-        feature_table = self.dataengine.get_table_to_dataframe(
-            "Feature_dk", self.dataset).collect()
-        if sparse:
-            coordinates = torch.LongTensor()
-            values = torch.FloatTensor([])
-            for factor in feature_table:
-                coordinate = torch.LongTensor([[int(factor.vid) - 1],
-                                               [int(factor.feature) - 1],
-                                               [int(factor.assigned_val) - 1]])
-                coordinates = torch.cat((coordinates, coordinate), 1)
-                value = factor['count']
-                values = torch.cat((values, torch.FloatTensor([value])), 0)
-            X = torch.sparse.FloatTensor(coordinates, values, torch.Size(
-                [self.testN, self.testM, self.testL]))
-        else:
-            X = torch.zeros(self.testN, self.testM, self.testL)
-            for factor in feature_table:
-                X[factor.vid -
-                  1, factor.feature -
-                  1, factor.assigned_val -
-                  1] = factor['count']
-        return X
 
     def setupMask(self, clean=1, N=1, L=1):
         """
@@ -260,7 +195,6 @@ class SoftMax:
                     output_dim, tie_init=True, tie_DC=True):
         """
         Initializes the logreg part of our model
-        :param input_dim_non_dc: number of init + cooccur features
         :param featurizers: list of featurizers
         :param input_dim_dc: number of dc features
         :param output_dim: number of classes
@@ -275,7 +209,7 @@ class SoftMax:
             tie_DC)
         return model
 
-    def train(self, model, loss, optimizer, x_val, y_val, mask=None):
+    def train(self, model, loss, optimizer,  y_val, mask=None):
         """
         Trains our model on the clean cells
         :param model: logistic regression model
@@ -286,7 +220,6 @@ class SoftMax:
         :param mask: masking tensor
         :return: cost of traininng
         """
-        x = Variable(x_val, requires_grad=False)
         y = Variable(y_val, requires_grad=False)
 
         if mask is not None:
@@ -299,7 +232,7 @@ class SoftMax:
         optimizer.zero_grad()
 
         # Forward
-        fx = model.forward(x, index, mask)
+        fx = model.forward(index, mask)
 
         output = loss.forward(fx, y.squeeze(1))
 
@@ -311,7 +244,7 @@ class SoftMax:
 
         return output.data[0]
 
-    def predict(self, model, x_val, mask=None):
+    def predict(self, model, mask=None):
         """
         Runs our model on the test set
         :param model: trained logreg model
@@ -319,7 +252,6 @@ class SoftMax:
         :param mask: masking tensor to restrict domain
         :return: predicted classes with probabilities
         """
-        x = Variable(x_val, requires_grad=False)
 
         index = torch.LongTensor(range(x_val.size()[0]))
         index = Variable(index, requires_grad=False)
@@ -327,7 +259,7 @@ class SoftMax:
         if mask is not None:
             mask = Variable(mask, requires_grad=False)
 
-        output = model.forward(x, index, mask)
+        output = model.forward( index, mask)
         output = softmax(output, 1)
         return output
 
@@ -356,7 +288,6 @@ class SoftMax:
                 cost += self.train(self.model,
                                    loss,
                                    optimizer,
-                                   self.X[start:end],
                                    self.Y[start:end],
                                    self.mask[start:end])
             predY = self.predict(self.model, self.X, self.mask)
@@ -366,7 +297,7 @@ class SoftMax:
                 print("Epoch %d, cost = %f, acc = %.2f%%" %
                       (i + 1, cost / num_batches,
                        100. * np.mean(map == self.grdt)))
-        return self.predict(self.model, self.X, self.mask)
+        return self.predict(self.model, self.mask)
 
     def save_prediction(self, Y):
         """

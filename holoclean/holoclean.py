@@ -450,7 +450,7 @@ class Session:
         # Trying to infer or to learn catch errors when tensors are none
 
         try:
-            self._ds_featurize(clean=1)
+            # self._ds_featurize(clean=1)
 
             if self.holo_env.verbose:
                 end = time.time()
@@ -460,7 +460,7 @@ class Session:
                                           str(end - start))
 
                 start = time.time()
-            soft = SoftMax(self, self.X_training)
+            soft = SoftMax(self)
             soft.logreg(self.featurizers)
 
             if self.holo_env.verbose:
@@ -478,7 +478,7 @@ class Session:
 
         try:
 
-            self._ds_featurize(clean=0)
+            # self._ds_featurize(clean=0)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Test Featurization: ' + str(end - start) + '\n'
