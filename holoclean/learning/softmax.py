@@ -45,6 +45,7 @@ class LogReg(torch.nn.Module):
                 signals_W = Parameter(torch.randn(featurizer.count,
                                                   1).expand(-1,
                                                             self.output_dim))
+
             self.weight_tensors.append(signals_W)
         return
 
@@ -69,7 +70,7 @@ class LogReg(torch.nn.Module):
 
         self._setup_weights()
 
-    def forward(self, index, mask):
+    def forward(self, start, end, mask):
         """
         Runs the forward pass of our logreg.
         :param data:
@@ -77,13 +78,18 @@ class LogReg(torch.nn.Module):
         :param mask: tensor to remove possibility of choosing unused class
         :return: output - X * W after masking
         """
+        # Build full X tensor
         X = None
         for featurizer in self.featurizers:
             sub_tensor = featurizer.forward()
-            if X is none:
+            if X is None:
                 X = sub_tensor
             else:
                 X = torch.concat((X,sub_tensor),1)
+        # Pare X tensor down to only the relevant values for the batch
+        X = X.narrow(0, start, start+end)
+
+
         # Reties the weights - need to do on every pass
 
         self.concat_weights()
@@ -92,8 +98,8 @@ class LogReg(torch.nn.Module):
         output = X.mul(self.W)
         output = output.sum(1)
         # Changes values to extremely negative at specified indices
-        if index is not None and mask is not None:
-            output.index_add_(0, index, mask)
+        if mask is not None:
+            output.index_add_(0, mask)
         return output
 
     def concat_weights(self):
@@ -137,7 +143,6 @@ class SoftMax:
             dimension_dict[dimension['dimension']] = dimension['length']
 
         # X Tensor Dimensions (N * M * L)
-        self.M = dimension_dict['M']
         self.N = dimension_dict['N']
         self.L = dimension_dict['L']
 
@@ -209,7 +214,7 @@ class SoftMax:
             tie_DC)
         return model
 
-    def train(self, model, loss, optimizer,  y_val, mask=None):
+    def train(self, model, loss, optimizer, start,end , y_val, mask=None):
         """
         Trains our model on the clean cells
         :param model: logistic regression model
@@ -225,14 +230,12 @@ class SoftMax:
         if mask is not None:
             mask = Variable(mask, requires_grad=False)
 
-        index = torch.LongTensor(range(x_val.size()[0]))
-        index = Variable(index, requires_grad=False)
 
         # Reset gradient
         optimizer.zero_grad()
 
         # Forward
-        fx = model.forward(index, mask)
+        fx = model.forward(start,end, mask)
 
         output = loss.forward(fx, y.squeeze(1))
 
@@ -252,14 +255,10 @@ class SoftMax:
         :param mask: masking tensor to restrict domain
         :return: predicted classes with probabilities
         """
-
-        index = torch.LongTensor(range(x_val.size()[0]))
-        index = Variable(index, requires_grad=False)
-
         if mask is not None:
             mask = Variable(mask, requires_grad=False)
 
-        output = model.forward( index, mask)
+        output = model.forward(mask)
         output = softmax(output, 1)
         return output
 
@@ -268,9 +267,9 @@ class SoftMax:
         Trains our model on clean cells and predicts vals for clean cells
         :return: predictions
         """
-        n_examples, n_features, n_classes = self.X.size()
+        # n_examples, n_features, n_classes = self.X.size()
         self.model = self.build_model(
-            featurizers, n_classes)
+            featurizers, self.L)
         loss = torch.nn.CrossEntropyLoss(size_average=True)
         optimizer = optim.SGD(
             self.model.parameters(),
@@ -282,12 +281,14 @@ class SoftMax:
         batch_size = self.holo_obj.batch_size
         for i in tqdm(range(self.holo_obj.learning_iterations)):
             cost = 0.
-            num_batches = n_examples // batch_size
+            num_batches = self.N // batch_size
             for k in range(num_batches):
                 start, end = k * batch_size, (k + 1) * batch_size
                 cost += self.train(self.model,
                                    loss,
                                    optimizer,
+                                   start,
+                                   end,
                                    self.Y[start:end],
                                    self.mask[start:end])
             predY = self.predict(self.model, self.X, self.mask)
