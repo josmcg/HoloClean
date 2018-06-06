@@ -26,7 +26,7 @@ class InitFeaturizer(Featurizer):
         self.dataengine = self.session.holo_env.dataengine
 
         self.table_name = self.dataset.table_specific_name('Init')
-        self.clean = clean
+        clean = clean
 
 
     def forward(self):
@@ -43,12 +43,16 @@ class InitFeaturizer(Featurizer):
 
         return self.tensor
 
-    def create_tensor(self):
+    def create_tensor(self,clean=1, N=None, L=None):
         """
         This method creates the tensor for the feature
         """
-        self.execute_query(self.clean)
-        tensor = torch.zeros(self.N, self.M, self.L)
+        self.execute_query(clean)
+        if clean:
+            tensor = torch.zeros(self.N, self.M, self.L)
+        else:
+            tensor = torch.zeros(N, self.M, L)
+
 
         query = "SELECT * FROM " + self.table_name
         feature_table = self.dataengine.query(query, 1).collect()

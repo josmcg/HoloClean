@@ -30,7 +30,7 @@ class DCFeaturizer(Featurizer):
 
         self.table_name = self.dataset.table_specific_name('Init')
         self.dc_objects = session.dc_objects
-        self.clean = clean
+        clean = clean
 
 
 
@@ -48,12 +48,15 @@ class DCFeaturizer(Featurizer):
 
         return self.tensor
 
-    def create_tensor(self):
+    def create_tensor(self,clean=1, N=None, L=None):
         """
         This method creates the tensor for the feature
         """
-        self.execute_query()
-        tensor = torch.zeros(self.N, self.M, self.L)
+        self.execute_query(clean)
+        if clean:
+            tensor = torch.zeros(self.N, self.M, self.L)
+        else:
+            tensor = torch.zeros(N, self.M, L)
 
         query = "SELECT * FROM " + self.table_name
         feature_table = self.dataengine.query(query, 1).collect()
@@ -173,7 +176,7 @@ class DCFeaturizer(Featurizer):
 
         return relax_dcs
 
-    def execute_query(self):
+    def execute_query(self,clean):
         """
         Creates a list of strings for the queries that are used to create the
         DC Signals
@@ -184,7 +187,7 @@ class DCFeaturizer(Featurizer):
 
         :return a list of strings for the queries for this feature
         """
-        if self.clean:
+        if clean:
             name = "Possible_values_clean"
         else:
             name = "Possible_values_dk"
@@ -192,7 +195,7 @@ class DCFeaturizer(Featurizer):
         all_relax_dcs = self._create_all_relaxed_dc()
         dc_queries = []
         count = 0
-        if self.clean:
+        if clean:
             self.offset = self.session.feature_count
 
         feature_map = []
@@ -218,7 +221,7 @@ class DCFeaturizer(Featurizer):
                                        " GROUP BY postab.vid, postab.domain_id"
             dc_queries.append(query_for_featurization)
 
-            if self.clean:
+            if clean:
                 feature_map.append([count + self.offset,
                                     self.attributes_list[index_dc],
                                     relax_dc, "DC"])
@@ -230,7 +233,7 @@ class DCFeaturizer(Featurizer):
                 self.session.feature_count += count
 
         self.count = len(dc_queries)
-        table_name = self.id + str(self.clean)
+        table_name = self.id + str(clean)
         self.table_name = self.dataset.table_specific_name(table_name)
         query_for_table = "CREATE TABLE " + self.table_name + \
                                   "(vid INT, assigned_val INT," \

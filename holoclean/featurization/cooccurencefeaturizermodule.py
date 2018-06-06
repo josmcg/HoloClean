@@ -60,13 +60,10 @@ class CooccurFeaturizer(Featurizer):
 
         return self.tensor
 
-    def create_tensor(self, clean=1):
+    def create_tensor(self, clean=1, N=None, L=None):
         """
         This method creates the tensor for the feature
         """
-        tensor = torch.zeros(self.N, self.M, self.L)
-
-
 
         domain_pair_stats = self.pruning_object.domain_pair_stats
         domain_stats = self.pruning_object.domain_stats
@@ -75,8 +72,11 @@ class CooccurFeaturizer(Featurizer):
 
         if clean:
             vid_list = self.pruning_object.v_id_clean_list
+            tensor = torch.zeros(self.N, self.M, self.L)
+
         else:
             vid_list = self.pruning_object.v_id_dk_list
+            tensor = torch.zeros(N, self.M, L)
 
         for vid in range(len(vid_list)):
             for cell_index in cell_values[vid_list[vid][0] - 1]:

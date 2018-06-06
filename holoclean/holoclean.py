@@ -460,6 +460,7 @@ class Session:
 
         self.testing()
 
+        '''
         init_signal = SignalInit(self)
         self._add_featurizer(init_signal)
 
@@ -468,11 +469,23 @@ class Session:
 
         cooccur_signal = SignalCooccur(self)
         self._add_featurizer(cooccur_signal)
+        '''
+        self._create_dimensions(1)
 
+        update_flag = False
+        #dummy dimensions need to change
+        init_signal = InitFeaturizer(self.N, self.L, update_flag, self, 1 )
+        self._add_featurizer(init_signal)
+
+        dc_signal = DCFeaturizer(self.N, self.L, update_flag, self, 1,self.Denial_constraints)
+        self._add_featurizer(dc_signal)
+
+        coo_signal = CooccurFeaturizer(self.N, self.L, update_flag, self, 1)
+        self._add_featurizer(coo_signal)
         # Trying to infer or to learn catch errors when tensors are none
 
         try:
-            self._ds_featurize(clean=1)
+            #self._ds_featurize(clean=1)
 
             if self.holo_env.verbose:
                 end = time.time()
@@ -793,14 +806,6 @@ class Session:
             ") as length;"
         self.holo_env.dataengine.query(insert_signal_query)
 
-        insert_signal_query = \
-            "INSERT INTO " + self.dataset.table_specific_name(dimensions) + \
-            " SELECT 'M' as dimension, (" \
-            " SELECT COUNT(*) " \
-            "FROM " \
-            + self.dataset.table_specific_name(feature_id_map) + \
-            ") as length;"
-        self.holo_env.dataengine.query(insert_signal_query)
 
         insert_signal_query = \
             "INSERT INTO " + self.dataset.table_specific_name(dimensions) + \
@@ -823,7 +828,6 @@ class Session:
             dimension_dict = {}
             for dimension in list:
                 dimension_dict[dimension['dimension']] = dimension['length']
-            self.M = dimension_dict['M']
             self.N = dimension_dict['N']
             self.L = dimension_dict['L']
 
@@ -835,7 +839,6 @@ class Session:
             for dimension in list:
                 dimension_dict[dimension['dimension']] = dimension['length']
             # X Tensor Dimensions (N * M * L)
-            self.M = dimension_dict['M']
             self.N = dimension_dict['N']
             self.L = dimension_dict['L']
 
