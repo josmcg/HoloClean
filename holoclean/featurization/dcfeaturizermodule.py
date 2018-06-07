@@ -6,7 +6,7 @@ from torch.nn import Parameter, ParameterList
 
 class DCFeaturizer(Featurizer):
 
-    def __init__(self, N, L, update_flag=False, session=None, clean=1, denial_constraints=None, M=None ):
+    def __init__(self, N, L, update_flag=False, session=None, denial_constraints=None):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -17,8 +17,7 @@ class DCFeaturizer(Featurizer):
 
         """
         super(DCFeaturizer, self).__init__(N, L, update_flag)
-        if M is not None:
-            self.M = M
+        self.M = None
         self.tensor = None
         self.id = "SignalDC"
         self.denial_constraints = denial_constraints

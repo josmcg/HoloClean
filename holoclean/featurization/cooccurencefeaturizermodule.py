@@ -6,7 +6,7 @@ from torch.nn import Parameter, ParameterList
 
 class CooccurFeaturizer(Featurizer):
 
-    def __init__(self, N, L, update_flag=False, session=None, clean=1,M=None ):
+    def __init__(self, N, L, update_flag=False, session=None):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
@@ -18,8 +18,7 @@ class CooccurFeaturizer(Featurizer):
         """
         super(CooccurFeaturizer, self).__init__(N, L, update_flag)
         self.session = session
-        if M is not None:
-            self.M = M
+        self.M = None
         self.id = "SignalCooccur"
         self.offset = self.session.feature_count
         self.index_name = GlobalVariables.index_name
@@ -34,7 +33,6 @@ class CooccurFeaturizer(Featurizer):
         self.domain_stats = self.pruning_object.domain_stats
         self.threshold = self.pruning_object.threshold1
         self.direct_insert = True
-        self.clean = clean
         self.dataengine = self.session.holo_env.dataengine
 
 
@@ -105,22 +103,20 @@ class CooccurFeaturizer(Featurizer):
         for attribute in self.dirty_cells_attributes:
             self.count += 1
             self.attribute_feature_id[attribute] = self.count
-            if self.clean:
-                # if clean add signal fo Feature_id_map
-                feature_id_list.append(
-                    [self.count + self.offset, attribute, 'Cooccur',
-                     'Cooccur'])
-                feature_df = self.session.holo_env.spark_session.createDataFrame(
-                    feature_id_list,
-                    self.session.dataset.attributes['Feature_id_map']
-                )
-                self.dataengine.add_db_table(
-                    'Feature_id_map',
-                    feature_df,
-                    self.session.dataset,
-                    append=1
-                )
-                self.session.feature_count += self.count
+            feature_id_list.append(
+                [self.count + self.offset, attribute, 'Cooccur',
+                 'Cooccur'])
+            feature_df = self.session.holo_env.spark_session.createDataFrame(
+                feature_id_list,
+                self.session.dataset.attributes['Feature_id_map']
+            )
+            self.dataengine.add_db_table(
+                'Feature_id_map',
+                feature_df,
+                self.session.dataset,
+                append=1
+            )
+            self.session.feature_count += self.count
         return
 
 

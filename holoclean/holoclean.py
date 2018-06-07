@@ -448,13 +448,13 @@ class Session:
 
         update_flag = False
         #dummy dimensions need to change
-        init_signal = InitFeaturizer(self.N, self.L, update_flag, self, 1 )
+        init_signal = InitFeaturizer(self.N, self.L, update_flag, self)
         self._add_featurizer(init_signal)
 
-        dc_signal = DCFeaturizer(self.N, self.L, update_flag, self, 1,self.Denial_constraints)
+        dc_signal = DCFeaturizer(self.N, self.L, update_flag, self, self.Denial_constraints)
         self._add_featurizer(dc_signal)
 
-        coo_signal = CooccurFeaturizer(self.N, self.L, update_flag, self, 1)
+        coo_signal = CooccurFeaturizer(self.N, self.L, update_flag, self)
         self._add_featurizer(coo_signal)
         # Trying to infer or to learn catch errors when tensors are none
 
