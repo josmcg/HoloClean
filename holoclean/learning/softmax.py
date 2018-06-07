@@ -79,6 +79,7 @@ class LogReg(torch.nn.Module):
         :return: output - X * W after masking
         """
         # Build full X tensor
+        print("called")
         X = None
         for featurizer in self.featurizers:
             sub_tensor = featurizer.forward()
@@ -99,7 +100,10 @@ class LogReg(torch.nn.Module):
         output = output.sum(1)
         # Changes values to extremely negative at specified indices
         if mask is not None:
-            output.index_add_(0, torch.LongTensor(range(X.size()[0])), mask)
+            index = torch.LongTensor(range(0, end- start))
+            print(index)
+            print(mask.size())
+            output.index_add_(0, index, mask)
         return output
 
     def concat_weights(self):
@@ -280,6 +284,7 @@ class SoftMax:
         # Experiment with different batch sizes. no hard rule on this
         batch_size = self.holo_obj.batch_size
         for i in tqdm(range(self.holo_obj.learning_iterations)):
+            print("beginning training")
             cost = 0.
             num_batches = self.N // batch_size
             for k in range(num_batches):
