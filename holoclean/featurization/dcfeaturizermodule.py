@@ -246,7 +246,8 @@ class DCFeaturizer(Featurizer):
 
         #execute dc_queries
         for query in dc_queries:
-            self.dataengine.query(query)
+            self.dataengine.query(
+                "INSERT INTO " + self.table_name + "(" + query + ");")
 
 
         return

@@ -113,7 +113,7 @@ class InitFeaturizer(Featurizer):
                                   "(vid INT, assigned_val INT," \
                                   " feature INT ,count INT);"
         self.dataengine.query(query_for_table)
-        self.dataengine.query(query_for_featurization)
+        self.dataengine.query("INSERT INTO " + self.table_name + "(" + query_for_featurization + ");")
 
 
 
