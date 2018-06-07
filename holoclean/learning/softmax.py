@@ -85,7 +85,7 @@ class LogReg(torch.nn.Module):
             if X is None:
                 X = sub_tensor
             else:
-                X = torch.concat((X,sub_tensor),1)
+                X = torch.cat((X,sub_tensor),1)
         # Pare X tensor down to only the relevant values for the batch
         X = X.narrow(0, start, start+end)
 
@@ -99,7 +99,7 @@ class LogReg(torch.nn.Module):
         output = output.sum(1)
         # Changes values to extremely negative at specified indices
         if mask is not None:
-            output.index_add_(0, mask)
+            output.index_add_(0, torch.LongTensor(range(X.size()[0])), mask)
         return output
 
     def concat_weights(self):
