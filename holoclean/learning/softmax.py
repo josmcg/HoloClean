@@ -6,6 +6,8 @@ from torch.nn.functional import softmax
 from pyspark.sql.types import *
 from tqdm import tqdm
 import numpy as np
+import torch.nn.functional as F
+
 
 
 class LogReg(torch.nn.Module):
@@ -277,6 +279,8 @@ class SoftMax:
             else:
                 x_val = torch.cat((x_val,sub_tensor),1)
 
+        x_val = F.normalize(x_val, p=2, dim=1)
+
         x = Variable(x_val, requires_grad=False)
 
         index = torch.LongTensor(range(x_val.size()[0]))
@@ -306,19 +310,30 @@ class SoftMax:
             weight_decay=self.holo_obj.weight_decay)
 
         # Experiment with different batch sizes. no hard rule on this
+        need_update = False
+        for featurizer in featurizers:
+            if featurizer.update_flag:
+                need_update = True
+        # create x tensor
+        X = self.create_tensor(featurizers)
+        X = F.normalize(X, p=2, dim=1)
         batch_size = self.holo_obj.batch_size
         for i in tqdm(range(self.holo_obj.learning_iterations)):
             cost = 0.
             num_batches = self.N // batch_size
             for k in range(num_batches):
                 start, end = k * batch_size, (k + 1) * batch_size
-                X = self.create_tensor(featurizers)
+
                 cost += self.train(self.model,
                                    loss,
                                    optimizer,
                                    X[start:end],
                                    self.Y[start:end],
                                    self.mask[start:end])
+                if need_update:
+                    X = self.create_tensor(featurizers)
+                    X = F.normalize(X, p=2, dim=1)
+
             predY = self.predict(self.model, X, self.mask)
             map = predY.data.numpy().argmax(axis=1)
 
