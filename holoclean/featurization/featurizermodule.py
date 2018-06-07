@@ -10,7 +10,6 @@ class Featurizer(nn.Module):
         Creates a pytorch module which will be a featurizer for HoloClean
         :param n : number of random variables
         :param l: number of classes
-        :param f: number of features in the group
         :param update_flag: True if the values in tensor of the featurizer
         need be updated
 

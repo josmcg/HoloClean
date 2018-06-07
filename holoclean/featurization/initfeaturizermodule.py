@@ -33,22 +33,6 @@ class InitFeaturizer(Featurizer):
             self.create_tensor()
         self.parameters = ParameterList()
 
-
-
-    def forward(self):
-        """
-        Forward step of the featurizer
-        Creates the tensor for this specific feature
-        """
-        if self.tensor is None:
-            self.create_tensor()
-        else:
-            if self.update_flag:
-                #if the weights are updated we need to create again the tensor
-                self.create_tensor()
-
-        return self.tensor
-
     def create_tensor(self,clean=1, N=None, L=None):
         """
         This method creates the tensor for the feature
@@ -68,7 +52,6 @@ class InitFeaturizer(Featurizer):
         self.tensor = tensor
 
         return self.tensor
-
 
     def execute_query(self, clean=1):
         """
