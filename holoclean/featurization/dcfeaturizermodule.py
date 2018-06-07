@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from holoclean.global_variables import GlobalVariables
 from featurizermodule import Featurizer
-
+from torch.nn import Parameter, ParameterList
 
 class DCFeaturizer(Featurizer):
 
@@ -33,6 +33,8 @@ class DCFeaturizer(Featurizer):
         self.dc_objects = session.dc_objects
         if not self.update_flag:
             self.create_tensor()
+        self.parameters = ParameterList()
+
 
 
 

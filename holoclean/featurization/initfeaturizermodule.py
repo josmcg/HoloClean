@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 from featurizermodule import Featurizer
-
+from torch.nn import Parameter, ParameterList
 
 class InitFeaturizer(Featurizer):
 
@@ -31,6 +31,8 @@ class InitFeaturizer(Featurizer):
 
         if not self.update_flag:
             self.create_tensor()
+        self.parameters = ParameterList()
+
 
 
     def forward(self):

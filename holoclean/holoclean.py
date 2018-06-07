@@ -8,6 +8,7 @@ import time
 
 import torch.nn.functional as F
 import torch
+import torch.nn as nn
 from dataengine import DataEngine
 from dataset import Dataset
 from featurization.database_worker import DatabaseWorker, PopulateTensor
@@ -289,7 +290,7 @@ class Session:
         self.holo_env = holo_env
         self.Denial_constraints = []  # Denial Constraint strings
         self.dc_objects = {}  # Denial Constraint Objects
-        self.featurizers = []
+        self.featurizers = nn.ModuleList()
         self.error_detectors = []
         self.cv = None
         self.pruning = None

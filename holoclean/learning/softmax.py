@@ -303,17 +303,23 @@ class SoftMax:
         self.model = self.build_model(
             featurizers, self.L)
         loss = torch.nn.CrossEntropyLoss(size_average=True)
+        need_update = False
+        list_parameters = None
+        for featurizer in featurizers:
+            if featurizer.update_flag:
+                need_update = True
+            if list_parameters is None:
+                list_parameters = list(featurizer.parameters())
+            else:
+                list_parameters = list_parameters + list(featurizer.parameters())
         optimizer = optim.SGD(
-            self.model.parameters(),
+            list(self.model.parameters()) + list_parameters,
             lr=self.holo_obj.learning_rate,
             momentum=self.holo_obj.momentum,
             weight_decay=self.holo_obj.weight_decay)
 
         # Experiment with different batch sizes. no hard rule on this
-        need_update = False
-        for featurizer in featurizers:
-            if featurizer.update_flag:
-                need_update = True
+
         # create x tensor
         X = self.create_tensor(featurizers)
         X = F.normalize(X, p=2, dim=1)

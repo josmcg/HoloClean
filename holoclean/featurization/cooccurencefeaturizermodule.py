@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from holoclean.global_variables import GlobalVariables
 from featurizermodule import Featurizer
-
+from torch.nn import Parameter, ParameterList
 
 class CooccurFeaturizer(Featurizer):
 
@@ -44,6 +44,8 @@ class CooccurFeaturizer(Featurizer):
         self.tensor = None
         if not self.update_flag:
             self.create_tensor()
+        self.parameters = ParameterList()
+
 
     def forward(self):
         """
