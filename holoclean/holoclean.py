@@ -422,21 +422,6 @@ class Session:
 
         return clean, dk
 
-    def testing(self):
-        update_flag = False
-        #dummy dimensions need to change
-        init_signal = InitFeaturizer(10000, 10, update_flag, self, 1 ,1)
-        tensor = init_signal()
-
-        dc_signal = DCFeaturizer(10000, 10, update_flag, self, 1,self.Denial_constraints,  70)
-        tensor1 = dc_signal()
-
-        coo_signal = CooccurFeaturizer(10000, 10, update_flag, self, 1, 70)
-        tensor2 = coo_signal()
-
-
-        return
-
     def repair(self):
         """
         Repairs the initial data includes pruning, featurization, and softmax
@@ -458,18 +443,6 @@ class Session:
             print log
             start = time.time()
 
-        #self.testing()
-
-        '''
-        init_signal = SignalInit(self)
-        self._add_featurizer(init_signal)
-
-        dc_signal = SignalDC(self.Denial_constraints, self)
-        self._add_featurizer(dc_signal)
-
-        cooccur_signal = SignalCooccur(self)
-        self._add_featurizer(cooccur_signal)
-        '''
         self._create_dimensions(1)
 
         update_flag = False
@@ -485,8 +458,6 @@ class Session:
         # Trying to infer or to learn catch errors when tensors are none
 
         try:
-            #self._ds_featurize(clean=1)
-
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Featurization: ' + str(end - start) + '\n'
@@ -510,10 +481,8 @@ class Session:
             self.holo_env.logger.\
                 error('Error Creating Training Tensor: nothing to learn',
                       exc_info=e)
-
         try:
-            self._create_dimensions(0)
-            # self._ds_featurize(clean=0)
+            self._create_dimensions(clean= 0)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Test Featurization: ' + str(end - start) + '\n'
@@ -522,7 +491,7 @@ class Session:
                     info('Time for Test Featurization dk: ' + str(end - start))
                 start = time.time()
 
-            Y = soft.predict(soft.model,
+            Y = soft.prediction(self.featurizers, soft.model,self.N,self.L,
                              soft.setupMask(0, self.N, self.L))
             soft.save_prediction(Y)
             if self.holo_env.verbose:

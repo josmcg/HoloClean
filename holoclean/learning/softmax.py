@@ -70,26 +70,14 @@ class LogReg(torch.nn.Module):
 
         self._setup_weights()
 
-    def forward(self, start, end, mask):
+    def forward(self, X, index, mask):
         """
         Runs the forward pass of our logreg.
-        :param data:
+        :param X: values of the features
         :param index: indices to mask at
         :param mask: tensor to remove possibility of choosing unused class
         :return: output - X * W after masking
         """
-        # Build full X tensor
-        print("called")
-        X = None
-        for featurizer in self.featurizers:
-            sub_tensor = featurizer.forward()
-            if X is None:
-                X = sub_tensor
-            else:
-                X = torch.cat((X,sub_tensor),1)
-        # Pare X tensor down to only the relevant values for the batch
-        X = X.narrow(0, start, start+end)
-
 
         # Reties the weights - need to do on every pass
 
@@ -99,10 +87,7 @@ class LogReg(torch.nn.Module):
         output = X.mul(self.W)
         output = output.sum(1)
         # Changes values to extremely negative at specified indices
-        if mask is not None:
-            index = torch.LongTensor(range(0, end- start))
-            print(index)
-            print(mask.size())
+        if index is not None and mask is not None:
             output.index_add_(0, index, mask)
         return output
 
@@ -124,6 +109,7 @@ class LogReg(torch.nn.Module):
                 self.W = tensor + 0
             else:
                 self.W = torch.cat((self.W, tensor), 0)
+
 
 
 class SoftMax:
@@ -218,7 +204,7 @@ class SoftMax:
             tie_DC)
         return model
 
-    def train(self, model, loss, optimizer, start,end , y_val, mask=None):
+    def train(self, model, loss, optimizer, x_val, y_val, mask=None):
         """
         Trains our model on the clean cells
         :param model: logistic regression model
@@ -229,17 +215,20 @@ class SoftMax:
         :param mask: masking tensor
         :return: cost of traininng
         """
+        x = Variable(x_val, requires_grad=False)
         y = Variable(y_val, requires_grad=False)
 
         if mask is not None:
             mask = Variable(mask, requires_grad=False)
 
+        index = torch.LongTensor(range(x_val.size()[0]))
+        index = Variable(index, requires_grad=False)
 
         # Reset gradient
         optimizer.zero_grad()
 
         # Forward
-        fx = model.forward(start,end, mask)
+        fx = model.forward(x, index, mask)
 
         output = loss.forward(fx, y.squeeze(1))
 
@@ -251,7 +240,7 @@ class SoftMax:
 
         return output.data[0]
 
-    def predict(self, model, mask=None):
+    def predict(self, model, x_val, mask=None):
         """
         Runs our model on the test set
         :param model: trained logreg model
@@ -259,11 +248,46 @@ class SoftMax:
         :param mask: masking tensor to restrict domain
         :return: predicted classes with probabilities
         """
+        x = Variable(x_val, requires_grad=False)
+
+        index = torch.LongTensor(range(x_val.size()[0]))
+        index = Variable(index, requires_grad=False)
+
         if mask is not None:
             mask = Variable(mask, requires_grad=False)
 
-        output = model.forward(mask)
+        output = model.forward(x, index, mask)
         output = softmax(output, 1)
+
+        return output
+
+    def prediction(self, featurizers, model,N,L, mask=None ):
+        """
+        Runs our model on the test set
+        :param model: trained logreg model
+        :param x_val: test x tensor
+        :param mask: masking tensor to restrict domain
+        :return: predicted classes with probabilities
+        """
+        x_val = None
+        for featurizer in featurizers:
+            sub_tensor = featurizer.create_tensor(0, N, L)
+            if x_val is None:
+                x_val = sub_tensor
+            else:
+                x_val = torch.cat((x_val,sub_tensor),1)
+
+        x = Variable(x_val, requires_grad=False)
+
+        index = torch.LongTensor(range(x_val.size()[0]))
+        index = Variable(index, requires_grad=False)
+
+        if mask is not None:
+            mask = Variable(mask, requires_grad=False)
+
+        output = model.forward(x, index, mask)
+        output = softmax(output, 1)
+
         return output
 
     def logreg(self, featurizers):
@@ -284,26 +308,42 @@ class SoftMax:
         # Experiment with different batch sizes. no hard rule on this
         batch_size = self.holo_obj.batch_size
         for i in tqdm(range(self.holo_obj.learning_iterations)):
-            print("beginning training")
             cost = 0.
             num_batches = self.N // batch_size
             for k in range(num_batches):
                 start, end = k * batch_size, (k + 1) * batch_size
+                X = self.create_tensor(featurizers)
                 cost += self.train(self.model,
                                    loss,
                                    optimizer,
-                                   start,
-                                   end,
+                                   X[start:end],
                                    self.Y[start:end],
                                    self.mask[start:end])
-            predY = self.predict(self.model, self.X, self.mask)
+            predY = self.predict(self.model, X, self.mask)
             map = predY.data.numpy().argmax(axis=1)
 
             if self.holo_obj.verbose:
                 print("Epoch %d, cost = %f, acc = %.2f%%" %
                       (i + 1, cost / num_batches,
                        100. * np.mean(map == self.grdt)))
-        return self.predict(self.model, self.mask)
+        return self.predict(self.model, X, self.mask)
+
+    def create_tensor(self,featurizers):
+        """
+        This method creates the X tensor that we will use in our model
+
+        :param featurizers: a list of all the pytorch modules that we use as
+        featurizers
+\       :return: X tensors
+        """
+        X = None
+        for featurizer in featurizers:
+            sub_tensor = featurizer.forward()
+            if X is None:
+                X = sub_tensor
+            else:
+                X = torch.cat((X,sub_tensor),1)
+        return X
 
     def save_prediction(self, Y):
         """
