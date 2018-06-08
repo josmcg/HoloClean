@@ -6,17 +6,15 @@ from torch.nn import ParameterList
 
 class DCFeaturizer(Featurizer):
 
-    def __init__(self, N, L,session, denial_constraints, update_flag=False):
+    def __init__(self, N, L,session, denial_constraints):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param N : number of random variables
         :param L: number of classes
         :param session: HoloClean session
         :param denial_constraints: list of denial_constraints
-        :param update_flag: True if the values in tensor of the featurizer
-        need be updated
         """
-        super(DCFeaturizer, self).__init__(N, L, update_flag)
+        super(DCFeaturizer, self).__init__(N, L, False)
         self.denial_constraints = denial_constraints
         self.session = session
         self.parser = session.parser
@@ -25,7 +23,7 @@ class DCFeaturizer(Featurizer):
         self.spark_session = self.session.holo_env.spark_session
         self.table_name = self.dataset.table_specific_name('Init')
         self.dc_objects = session.dc_objects
-
+        self.update_flag = False
         self.M = None
         self.tensor = None
         self.id = "SignalDC"

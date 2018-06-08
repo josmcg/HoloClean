@@ -1,15 +1,19 @@
 import torch.nn as nn
 from abc import ABCMeta, abstractmethod
 
+
 class Featurizer(nn.Module):
+    NO_TIE = 0
+    TIE_ALL = 1
+    TIE_PER_FEATURE = 2  # Not yet implemented
 
     __metaclass__ = ABCMeta
 
     def __init__(self, N, L,  update_flag=False):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
-        :param n : number of random variables
-        :param l: number of classes
+        :param N : number of random variables
+        :param L: number of classes
         :param update_flag: True if the values in tensor of the featurizer
         need be updated
 
@@ -23,9 +27,8 @@ class Featurizer(nn.Module):
         # These values must be overridden in subclass
         self.offset = 0  # offset on the feature_id_map
         """
-        The type of the featurizer will determine the way we tie the weights
-        0. No tieing
-        1. Tieing the weights in the domain
+        The type of the featurizer will determine the way we tie the weights 
+        in the prediction module. See options above
         """
         self.type = None
         self.count = 0
@@ -34,13 +37,14 @@ class Featurizer(nn.Module):
     def forward(self):
         """
         Forward step of the featurizer
-        Creates the tensor for this specific feature
+        Creates the tensor for this specific feature. Should not be
+        overridden
         """
         if self.tensor is None:
             self.create_tensor()
         else:
             if self.update_flag:
-                #if the weights are updated we need to create again the tensor
+                # if the weights are updated we need to create again the tensor
                 self.create_tensor()
 
         return self.tensor

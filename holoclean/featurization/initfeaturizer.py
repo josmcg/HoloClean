@@ -2,6 +2,7 @@ import torch
 from featurizer import Featurizer
 from torch.nn import ParameterList
 
+
 class InitFeaturizer(Featurizer):
 
     def __init__(self, N, L,session, update_flag=False):
@@ -18,7 +19,6 @@ class InitFeaturizer(Featurizer):
         self.dataset = self.session.dataset
         self.dataengine = self.session.holo_env.dataengine
         self.table_name = self.dataset.table_specific_name('Init')
-
         self.id = "SignalInit"
         self.type = 1
         self.M = 1

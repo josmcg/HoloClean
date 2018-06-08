@@ -444,15 +444,14 @@ class Session:
 
         self._create_dimensions(1)
 
-        update_flag = False
-        #dummy dimensions need to change
-        init_signal = InitFeaturizer(self.N, self.L, self, update_flag)
+        # dummy dimensions need to change
+        init_signal = InitFeaturizer(self.N, self.L, self)
         self._add_featurizer(init_signal)
 
-        dc_signal = DCFeaturizer(self.N, self.L, self, self.Denial_constraints, update_flag)
+        dc_signal = DCFeaturizer(self.N, self.L, self, self.Denial_constraints)
         self._add_featurizer(dc_signal)
 
-        coo_signal = CooccurFeaturizer(self.N, self.L, self, update_flag)
+        coo_signal = CooccurFeaturizer(self.N, self.L, self)
         self._add_featurizer(coo_signal)
         # Trying to infer or to learn catch errors when tensors are none
 

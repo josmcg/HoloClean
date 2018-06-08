@@ -6,7 +6,7 @@ from torch.nn import ParameterList
 
 class CooccurFeaturizer(Featurizer):
 
-    def __init__(self, N, L, session, update_flag=False):
+    def __init__(self, N, L, session):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param N : number of random variables
@@ -15,7 +15,7 @@ class CooccurFeaturizer(Featurizer):
         :param update_flag: True if the values in tensor of the featurizer
         need be updated
         """
-        super(CooccurFeaturizer, self).__init__(N, L, update_flag)
+        super(CooccurFeaturizer, self).__init__(N, L, False)
         self.session = session
         self.offset = self.session.feature_count
         self.index_name = GlobalVariables.index_name
@@ -30,18 +30,16 @@ class CooccurFeaturizer(Featurizer):
         self.threshold = self.pruning_object.threshold1
         self.direct_insert = True
         self.dataengine = self.session.holo_env.dataengine
-
+        self.update_flag = False
         self.get_feature_id_map()
-
-
         self.id = "SignalCooccur"
         self.type = 1
         self.M = self.count
+        self.attribute_feature_id = None
         self.tensor = None
         if not self.update_flag:
             self.create_tensor()
         self.parameters = ParameterList()
-
 
     def create_tensor(self, clean=1, N=None, L=None):
         """

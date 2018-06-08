@@ -7,7 +7,7 @@ from pyspark.sql.types import *
 from tqdm import tqdm
 import numpy as np
 import torch.nn.functional as F
-
+from holoclean.featurization.featurizer import Featurizer
 
 
 class LogReg(torch.nn.Module):
@@ -29,11 +29,11 @@ class LogReg(torch.nn.Module):
         self.W = None
         for featurizer in self.featurizers:
             self.feature_type.append(featurizer.type)
-            if featurizer.type == 1:
+            if featurizer.type == Featurizer.TIE_ALL:
                 signals_W = Parameter(torch.randn(featurizer.M,
                                                   1).expand(-1,
                                                             self.output_dim))
-            elif featurizer.type == 0:
+            elif featurizer.type == Featurizer.NO_TIE:
                 signals_W = Parameter(torch.randn(featurizer.M,self.output_dim))
             self.weight_tensors.append(signals_W)
         return
@@ -42,8 +42,7 @@ class LogReg(torch.nn.Module):
                  tie_init, tie_dc):
         """
         Constructor for our logistic regression
-        :param input_dim_non_dc: number of init + cooccur features
-        :param input_dim_dc: number of dc features
+        :param featurizers: a list of featurizer modules
         :param output_dim: number of classes
         :param tie_init: boolean, determines weight tying for init features
         :param tie_dc: boolean, determines weight tying for dc features
@@ -96,13 +95,11 @@ class LogReg(torch.nn.Module):
                 self.W = torch.cat((self.W, tensor), 0)
 
 
-
 class SoftMax:
 
     def __init__(self, session):
         """
         Constructor for our softmax model
-        :param X_training: x tensor used for training the model
         :param session: session object
         """
         self.session = session
@@ -246,11 +243,13 @@ class SoftMax:
 
         return output
 
-    def prediction(self, featurizers, model,N,L, mask=None ):
+    def prediction(self, featurizers, model,  N, L, mask=None):
         """
         Runs our model on the test set
+        :param featurizers: a list of featurizers
         :param model: trained logreg model
-        :param x_val: test x tensor
+        :param N: The number of examples
+        :param L: The number of possible classes
         :param mask: masking tensor to restrict domain
         :return: predicted classes with probabilities
         """
@@ -260,7 +259,7 @@ class SoftMax:
             if x_val is None:
                 x_val = sub_tensor
             else:
-                x_val = torch.cat((x_val,sub_tensor),1)
+                x_val = torch.cat((x_val, sub_tensor), 1)
 
         x_val = F.normalize(x_val, p=2, dim=1)
 
@@ -280,6 +279,7 @@ class SoftMax:
     def logreg(self, featurizers):
         """
         Trains our model on clean cells and predicts vals for clean cells
+        :param featurizers: a list of featurizer modules
         :return: predictions
         """
         # n_examples, n_features, n_classes = self.X.size()
@@ -335,7 +335,6 @@ class SoftMax:
     def create_tensor(self,featurizers):
         """
         This method creates the X tensor that we will use in our model
-
         :param featurizers: a list of all the pytorch modules that we use as
         featurizers
 \       :return: X tensors
