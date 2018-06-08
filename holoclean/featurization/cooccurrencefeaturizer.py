@@ -35,7 +35,6 @@ class CooccurFeaturizer(Featurizer):
         self.id = "SignalCooccur"
         self.type = 1
         self.M = self.count
-        self.attribute_feature_id = None
         self.tensor = None
         if not self.update_flag:
             self.create_tensor()
