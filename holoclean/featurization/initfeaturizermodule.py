@@ -18,6 +18,7 @@ class InitFeaturizer(Featurizer):
         super(InitFeaturizer, self).__init__(N, L, update_flag)
         self.session = session
         self.id = "SignalInit"
+        self.type = 1
         self.dataset = self.session.dataset
         self.dataengine = self.session.holo_env.dataengine
 

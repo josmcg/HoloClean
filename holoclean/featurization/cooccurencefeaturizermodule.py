@@ -19,6 +19,7 @@ class CooccurFeaturizer(Featurizer):
         super(CooccurFeaturizer, self).__init__(N, L, update_flag)
         self.session = session
         self.M = None
+        self.type = 1
         self.id = "SignalCooccur"
         self.offset = self.session.feature_count
         self.index_name = GlobalVariables.index_name

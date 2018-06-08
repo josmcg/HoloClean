@@ -22,8 +22,14 @@ class Featurizer(nn.Module):
 
         # These values must be overridden in subclass
         self.offset = 0  # offset on the feature_id_map
-        self.id = 'Base'
+        """
+        The type of the featurizer will determine the way we tie the weights
+        0. No tieing
+        1. Tieing the weights in the domain
+        """
+        self.type = None
         self.count = 0
+        self.id = "Base"
 
     def forward(self):
         """

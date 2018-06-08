@@ -20,6 +20,7 @@ class DCFeaturizer(Featurizer):
         self.M = None
         self.tensor = None
         self.id = "SignalDC"
+        self.type = 1
         self.denial_constraints = denial_constraints
         self.session = session
         self.parser = session.parser

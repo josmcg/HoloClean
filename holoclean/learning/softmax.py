@@ -25,11 +25,18 @@ class LogReg(torch.nn.Module):
         # setup init
         self.weight_tensors = ParameterList()
         self.tensor_tuple = ()
-        self.feature_id = []
+        self.feature_type = []
         self.W = None
         for featurizer in self.featurizers:
-            self.feature_id.append(featurizer.id)
-            if featurizer.id == 'SignalInit':
+            self.feature_type.append(featurizer.type)
+            if featurizer.type == 1:
+                signals_W = Parameter(torch.randn(featurizer.M,
+                                                  1).expand(-1,
+                                                            self.output_dim))
+            elif featurizer.type == 0:
+                signals_W = Parameter(torch.randn(featurizer.M,self.output_dim))
+
+                '''
                 if self.tie_init:
                     signals_W = Parameter(torch.randn(1).expand(
                         1, self.output_dim))
@@ -47,6 +54,7 @@ class LogReg(torch.nn.Module):
                 signals_W = Parameter(torch.randn(featurizer.count,
                                                   1).expand(-1,
                                                             self.output_dim))
+            '''
 
             self.weight_tensors.append(signals_W)
         return
@@ -98,15 +106,11 @@ class LogReg(torch.nn.Module):
         Reties the weight
         """
         for feature_index in range(0, len(self.weight_tensors)):
-            if self.feature_id[feature_index] == 'SignalInit':
-                tensor = self.weight_tensors[feature_index].expand(
-                    1, self.output_dim)
-            elif self.feature_id[feature_index] == 'SignalDC':
+            if self.feature_type[feature_index]  == 1:
                 tensor = self.weight_tensors[feature_index].expand(
                     -1, self.output_dim)
             else:
-                tensor = self.weight_tensors[feature_index].expand(
-                    -1, self.output_dim)
+                tensor = self.weight_tensors[feature_index]
             if feature_index == 0:
                 self.W = tensor + 0
             else:
