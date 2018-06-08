@@ -37,7 +37,7 @@ class CooccurFeaturizer(Featurizer):
         self.M = self.count
         self.tensor = None
         if not self.update_flag:
-            self.create_tensor()
+            self.tensor_train = self.create_tensor()
         self.parameters = ParameterList()
 
     def create_tensor(self, clean=1, N=None, L=None):
@@ -78,9 +78,8 @@ class CooccurFeaturizer(Featurizer):
                         probability = count / v_count
                         tensor[vid, feature - 1, domain_id] = probability
                         domain_id = domain_id + 1
-        self.tensor = tensor
 
-        return self.tensor
+        return tensor
 
     def get_feature_id_map(self):
         """

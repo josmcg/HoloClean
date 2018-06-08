@@ -22,7 +22,9 @@ class Featurizer(nn.Module):
         self.update_flag = update_flag
         self.N = N
         self.L = L
-        self.tensor = None
+        self.tensor_train = None
+        self.tensor_test = None
+
 
         # These values must be overridden in subclass
         self.offset = 0  # offset on the feature_id_map
@@ -34,27 +36,40 @@ class Featurizer(nn.Module):
         self.count = 0
         self.id = "Base"
 
-    def forward(self):
+    def forward(self, clean=1, N=None, L=None):
         """
         Forward step of the featurizer
         Creates the tensor for this specific feature. Should not be
         overridden
         """
-        if self.tensor is None:
-            self.create_tensor()
-        else:
-            if self.update_flag:
-                # if the weights are updated we need to create again the tensor
-                self.create_tensor()
+        if clean:
+            #training
 
-        return self.tensor
+            if self.tensor_train is None:
+                self.tensor_train = self.create_tensor()
+            else:
+                if self.update_flag:
+                    # if the weights are updated we need to create again the tensor
+                    self.tensor_train =  self.create_tensor()
+            return self.tensor_train
+        else:
+            #testing
+            if self.tensor_test is None:
+                self.tensor_test = self.create_tensor(clean, N, L)
+            else:
+                if self.update_flag:
+                    # if the weights are updated we need to create again the tensor
+                    self.tensor_test = self.create_tensor(clean, N, L)
+            return self.tensor_test
+
 
     @abstractmethod
-    def create_tensor(self):
+    def create_tensor(self, clean=1, N=None, L=None):
         """
         This method creates the tensor for the feature
         """
-        return self.tensor
+        tensor = None
+        return tensor
 
 
 

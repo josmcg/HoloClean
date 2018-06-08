@@ -29,7 +29,7 @@ class DCFeaturizer(Featurizer):
         self.id = "SignalDC"
         self.type = 1
         if not self.update_flag:
-            self.create_tensor()
+            self.tensor_train = self.create_tensor()
         self.parameters = ParameterList()
 
     def create_tensor(self,clean=1, N=None, L=None):
@@ -48,9 +48,8 @@ class DCFeaturizer(Featurizer):
         for factor in feature_table:
             tensor[factor.vid - 1, factor.feature - 1,
                    factor.assigned_val - 1] = factor['count']
-        self.tensor = tensor
 
-        return self.tensor
+        return tensor
 
     def _create_all_relaxed_dc(self):
         """

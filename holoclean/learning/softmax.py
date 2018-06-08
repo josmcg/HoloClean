@@ -255,7 +255,7 @@ class SoftMax:
         """
         x_val = None
         for featurizer in featurizers:
-            sub_tensor = featurizer.create_tensor(0, N, L)
+            sub_tensor = featurizer.forward(0, N, L)
             if x_val is None:
                 x_val = sub_tensor
             else:
