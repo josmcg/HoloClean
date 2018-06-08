@@ -17,16 +17,14 @@ from utils.parser_interface import ParserInterface, DenialConstraint
 import multiprocessing
 
 from errordetection.errordetector_wrapper import ErrorDetectorsWrapper
-from featurization.initfeaturizer import SignalInit
-from featurization.dcfeaturizer import SignalDC
-from featurization.cooccurrencefeaturizer import SignalCooccur
+
 from global_variables import GlobalVariables
 from learning.softmax import SoftMax
 from learning.accuracy import Accuracy
 
-from featurization.initfeaturizermodule import InitFeaturizer
-from featurization.cooccurencefeaturizermodule import CooccurFeaturizer
-from featurization.dcfeaturizermodule import DCFeaturizer
+from featurization.initfeaturizer import InitFeaturizer
+from featurization.cooccurrencefeaturizer import CooccurFeaturizer
+from featurization.dcfeaturizer import DCFeaturizer
 
 
 
@@ -448,13 +446,13 @@ class Session:
 
         update_flag = False
         #dummy dimensions need to change
-        init_signal = InitFeaturizer(self.N, self.L, update_flag, self)
+        init_signal = InitFeaturizer(self.N, self.L, self, update_flag)
         self._add_featurizer(init_signal)
 
-        dc_signal = DCFeaturizer(self.N, self.L, update_flag, self, self.Denial_constraints)
+        dc_signal = DCFeaturizer(self.N, self.L, self, self.Denial_constraints, update_flag)
         self._add_featurizer(dc_signal)
 
-        coo_signal = CooccurFeaturizer(self.N, self.L, update_flag, self)
+        coo_signal = CooccurFeaturizer(self.N, self.L, self, update_flag)
         self._add_featurizer(coo_signal)
         # Trying to infer or to learn catch errors when tensors are none
 

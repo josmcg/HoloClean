@@ -1,32 +1,58 @@
-from featurizer import Featurizer
+import torch.nn as nn
+import torch
 from holoclean.global_variables import GlobalVariables
+from featurizer import Featurizer
+from torch.nn import ParameterList
 
-__metaclass__ = type
+class DCFeaturizer(Featurizer):
 
-
-class SignalDC(Featurizer):
-    """
-    This class is a subclass of the Featurizer class and
-    will return a list of queries which represent the DC Signal for the
-    clean and don't know cells
-    """
-
-    def __init__(self, denial_constraints, session):
-
+    def __init__(self, N, L,session, denial_constraints, update_flag=False):
         """
-        Initializing dc signal object
-
+        Creates a pytorch module which will be a featurizer for HoloClean
+        :param N : number of random variables
+        :param L: number of classes
+        :param session: HoloClean session
         :param denial_constraints: list of denial_constraints
-        :param session: a Holoclean session
+        :param update_flag: True if the values in tensor of the featurizer
+        need be updated
         """
-
-        super(SignalDC, self).__init__(session)
-        self.id = "SignalDC"
+        super(DCFeaturizer, self).__init__(N, L, update_flag)
         self.denial_constraints = denial_constraints
-        self.spark_session = session.holo_env.spark_session
+        self.session = session
         self.parser = session.parser
+        self.dataset = self.session.dataset
+        self.dataengine = self.session.holo_env.dataengine
+        self.spark_session = self.session.holo_env.spark_session
         self.table_name = self.dataset.table_specific_name('Init')
         self.dc_objects = session.dc_objects
+
+        self.M = None
+        self.tensor = None
+        self.id = "SignalDC"
+        self.type = 1
+        if not self.update_flag:
+            self.create_tensor()
+        self.parameters = ParameterList()
+
+    def create_tensor(self,clean=1, N=None, L=None):
+        """
+        This method creates the tensor for the feature
+        """
+        self.execute_query(clean)
+        self.M = self.count
+        if clean:
+            tensor = torch.zeros(self.N, self.M, self.L)
+        else:
+            tensor = torch.zeros(N, self.M, L)
+
+        query = "SELECT * FROM " + self.table_name
+        feature_table = self.dataengine.query(query, 1).collect()
+        for factor in feature_table:
+            tensor[factor.vid - 1, factor.feature - 1,
+                   factor.assigned_val - 1] = factor['count']
+        self.tensor = tensor
+
+        return self.tensor
 
     def _create_all_relaxed_dc(self):
         """
@@ -136,7 +162,7 @@ class SignalDC(Featurizer):
 
         return relax_dcs
 
-    def get_query(self, clean=1, dcquery_prod=None):
+    def execute_query(self,clean):
         """
         Creates a list of strings for the queries that are used to create the
         DC Signals
@@ -166,7 +192,7 @@ class SignalDC(Featurizer):
             query_for_featurization = "SELECT" \
                                       " postab.vid as vid, " \
                                       "postab.domain_id AS assigned_val, " + \
-                                      str(count + self.offset) \
+                                      str(count) \
                                       + " AS feature, " \
                                       "  count(*) as count " \
                                       "  FROM "
@@ -186,12 +212,23 @@ class SignalDC(Featurizer):
                                     self.attributes_list[index_dc],
                                     relax_dc, "DC"])
 
-        if clean:
-            df_feature_map_dc = self.spark_session.createDataFrame(
-                feature_map, self.dataset.attributes['Feature_id_map'])
-            self.dataengine.add_db_table('Feature_id_map',
-                                         df_feature_map_dc, self.dataset, 1)
-            self.session.feature_count += count
+                df_feature_map_dc = self.spark_session.createDataFrame(
+                    feature_map, self.dataset.attributes['Feature_id_map'])
+                self.dataengine.add_db_table('Feature_id_map',
+                                             df_feature_map_dc, self.dataset, 1)
+                self.session.feature_count += count
+
 
         self.count = len(dc_queries)
-        return dc_queries
+        table_name = self.id + str(clean)
+        self.table_name = self.dataset.table_specific_name(table_name)
+        query_for_table = "CREATE TABLE " + self.table_name + \
+                                  "(vid INT, assigned_val INT," \
+                                  " feature INT ,count INT);"
+        self.dataengine.query(query_for_table)
+
+        #execute dc_queries
+        for query in dc_queries:
+            self.dataengine.query(
+                "INSERT INTO " + self.table_name + "(" + query + ");")
+        return

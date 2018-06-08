@@ -1,28 +1,53 @@
+import torch
 from featurizer import Featurizer
+from torch.nn import ParameterList
 
+class InitFeaturizer(Featurizer):
 
-__metaclass__ = type
-
-
-class SignalInit(Featurizer):
-    """
-    This class is a subclass of Featurizer class and
-    will return the  query which represent the Initial Signal for the
-    clean and don't know cells
-    """
-
-    def __init__(self, session):
+    def __init__(self, N, L,session, update_flag=False):
         """
-        Constructing initial values signal object
-
-        :param session: session object
+        Creates a pytorch module which will be a featurizer for HoloClean
+        :param N : number of random variables
+        :param L: number of classes
+        :param session: HoloClean session
+        :param update_flag: True if the values in tensor of the featurizer
+        need be updated
         """
-        super(SignalInit, self).__init__(session)
-        self.id = "SignalInit"
+        super(InitFeaturizer, self).__init__(N, L, update_flag)
+        self.session = session
+        self.dataset = self.session.dataset
+        self.dataengine = self.session.holo_env.dataengine
         self.table_name = self.dataset.table_specific_name('Init')
-        self.count = 1
 
-    def get_query(self, clean=1):
+        self.id = "SignalInit"
+        self.type = 1
+        self.M = 1
+        self.tensor = None
+
+        if not self.update_flag:
+            self.create_tensor()
+        self.parameters = ParameterList()
+
+    def create_tensor(self, clean=1, N=None, L=None):
+        """
+        This method creates the tensor for the feature
+        """
+        self.execute_query(clean)
+        if clean:
+            tensor = torch.zeros(self.N, self.M, self.L)
+        else:
+            tensor = torch.zeros(N, self.M, L)
+
+        query = "SELECT * FROM " + self.table_name
+        feature_table = self.dataengine.query(query, 1).collect()
+        for factor in feature_table:
+            tensor[factor.vid - 1, factor.feature - 1,
+                   factor.assigned_val - 1] = factor['count']
+        self.tensor = tensor
+
+        return self.tensor
+
+    def execute_query(self, clean=1):
         """
         Creates a string for the query that it is used to create the Initial
         Signal
@@ -43,7 +68,7 @@ class SignalInit(Featurizer):
 
         query_for_featurization = " SELECT  \
             init_flat.vid as vid, init_flat.domain_id AS assigned_val, \
-            '" + str(count) + "' AS feature, \
+            '" + str(1) + "' AS feature, \
             1 as count\
             FROM """ + \
             self.dataset.table_specific_name(name) + \
@@ -60,4 +85,18 @@ class SignalInit(Featurizer):
                                 self.dataset.attributes['Feature_id_map'])
             self.session.holo_env.dataengine.add_db_table(
                 'Feature_id_map', df_domain_map, self.dataset, append=1)
-        return [query_for_featurization]
+
+        table_name = self.id + str(clean)
+        self.table_name = self.dataset.table_specific_name(table_name)
+        query_for_table = "CREATE TABLE " + self.table_name + \
+                                  "(vid INT, assigned_val INT," \
+                                  " feature INT ,count INT);"
+        self.dataengine.query(query_for_table)
+        self.dataengine.query("INSERT INTO " + self.table_name + "(" + query_for_featurization + ");")
+
+
+
+
+
+
+

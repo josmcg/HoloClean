@@ -1,29 +1,26 @@
-from featurizer import Featurizer
+import torch.nn as nn
+import torch
 from holoclean.global_variables import GlobalVariables
+from featurizer import Featurizer
+from torch.nn import ParameterList
 
-__metaclass__ = type
+class CooccurFeaturizer(Featurizer):
 
-
-class SignalCooccur(Featurizer):
-    """
-    This class is a subclass of Featurizer class for the co-occur signal and
-    will fill the tensor
-    """
-
-    def __init__(self, session):
+    def __init__(self, N, L, session, update_flag=False):
         """
-        Initializing a co-occur signal object
-
-        :param session: session object
+        Creates a pytorch module which will be a featurizer for HoloClean
+        :param N : number of random variables
+        :param L: number of classes
+        :param session: HoloClean session
+        :param update_flag: True if the values in tensor of the featurizer
+        need be updated
         """
-
-        super(SignalCooccur, self).__init__(session)
-        self.id = "SignalCooccur"
+        super(CooccurFeaturizer, self).__init__(N, L, update_flag)
+        self.session = session
         self.offset = self.session.feature_count
         self.index_name = GlobalVariables.index_name
         self.all_attr = list(self.session.init_dataset.schema.names)
         self.all_attr.remove(self.index_name)
-
         self.count = 0
         self.pruning_object = self.session.pruning
         self.domain_pair_stats = self.pruning_object.domain_pair_stats
@@ -32,17 +29,25 @@ class SignalCooccur(Featurizer):
         self.domain_stats = self.pruning_object.domain_stats
         self.threshold = self.pruning_object.threshold1
         self.direct_insert = True
+        self.dataengine = self.session.holo_env.dataengine
 
-    def insert_to_tensor(self, tensor, clean):
+        self.get_feature_id_map()
+
+
+        self.id = "SignalCooccur"
+        self.type = 1
+        self.M = self.count
+        self.tensor = None
+        if not self.update_flag:
+            self.create_tensor()
+        self.parameters = ParameterList()
+
+
+    def create_tensor(self, clean=1, N=None, L=None):
         """
-        Inserting co-occur data into tensor
-
-        :param tensor: tensor object
-        :param clean: Nat value that identifies if we are calculating feature
-        value for training data (clean cells) or testing data
-
-        :return: None
+        This method creates the tensor for the feature
         """
+
         domain_pair_stats = self.pruning_object.domain_pair_stats
         domain_stats = self.pruning_object.domain_stats
         cell_domain = self.pruning_object.cell_domain
@@ -50,8 +55,11 @@ class SignalCooccur(Featurizer):
 
         if clean:
             vid_list = self.pruning_object.v_id_clean_list
+            tensor = torch.zeros(self.N, self.M, self.L)
+
         else:
             vid_list = self.pruning_object.v_id_dk_list
+            tensor = torch.zeros(N, self.M, L)
 
         for vid in range(len(vid_list)):
             for cell_index in cell_values[vid_list[vid][0] - 1]:
@@ -71,29 +79,29 @@ class SignalCooccur(Featurizer):
                         count = domain_pair_stats[co_attribute][attribute].get(
                             (co_value, value), 0)
                         probability = count / v_count
-                        tensor[vid, feature-1, domain_id] = probability
+                        tensor[vid, feature - 1, domain_id] = probability
                         domain_id = domain_id + 1
-        return
+        self.tensor = tensor
 
-    def get_query(self, clean=1):
+        return self.tensor
+
+    def get_feature_id_map(self):
         """
         Adding co-occur feature
-
         :param clean: shows if create the feature table for the clean or the dk
          cells
-
         :return list
         """
-        if clean:
-            self.offset = self.session.feature_count
-            self.attribute_feature_id = {}
-            feature_id_list = []
-            for attribute in self.dirty_cells_attributes:
-                self.count += 1
-                self.attribute_feature_id[attribute] = self.count + self.offset
-                feature_id_list.append(
-                    [self.count + self.offset, attribute, 'Cooccur',
-                     'Cooccur'])
+
+        self.offset = self.session.feature_count
+        self.attribute_feature_id = {}
+        feature_id_list = []
+        for attribute in self.dirty_cells_attributes:
+            self.count += 1
+            self.attribute_feature_id[attribute] = self.count
+            feature_id_list.append(
+                [self.count + self.offset, attribute, 'Cooccur',
+                 'Cooccur'])
             feature_df = self.session.holo_env.spark_session.createDataFrame(
                 feature_id_list,
                 self.session.dataset.attributes['Feature_id_map']
@@ -105,4 +113,4 @@ class SignalCooccur(Featurizer):
                 append=1
             )
             self.session.feature_count += self.count
-        return []
+        return

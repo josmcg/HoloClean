@@ -35,27 +35,6 @@ class LogReg(torch.nn.Module):
                                                             self.output_dim))
             elif featurizer.type == 0:
                 signals_W = Parameter(torch.randn(featurizer.M,self.output_dim))
-
-                '''
-                if self.tie_init:
-                    signals_W = Parameter(torch.randn(1).expand(
-                        1, self.output_dim))
-                else:
-                    signals_W = Parameter(torch.randn(1, self.output_dim))
-            elif featurizer.id == 'SignalDC':
-                if self.tie_dc:
-                    signals_W = Parameter(
-                        torch.randn(featurizer.count, 1).expand(
-                            -1, self.output_dim))
-                else:
-                    signals_W = Parameter(
-                        torch.randn(featurizer.count, self.output_dim))
-            else:
-                signals_W = Parameter(torch.randn(featurizer.count,
-                                                  1).expand(-1,
-                                                            self.output_dim))
-            '''
-
             self.weight_tensors.append(signals_W)
         return
 
@@ -106,7 +85,7 @@ class LogReg(torch.nn.Module):
         Reties the weight
         """
         for feature_index in range(0, len(self.weight_tensors)):
-            if self.feature_type[feature_index]  == 1:
+            if self.feature_type[feature_index] == 1:
                 tensor = self.weight_tensors[feature_index].expand(
                     -1, self.output_dim)
             else:

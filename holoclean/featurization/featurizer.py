@@ -1,39 +1,58 @@
+import torch.nn as nn
 from abc import ABCMeta, abstractmethod
 
+class Featurizer(nn.Module):
 
-class Featurizer:
-    """
-    This class is an abstract class for general featurizer, it requires for
-    every sub-class to implement the get_query method
-    """
     __metaclass__ = ABCMeta
 
-    def __init__(self, session):
+    def __init__(self, N, L,  update_flag=False):
         """
-        Initializing Featurizer object abstraction
+        Creates a pytorch module which will be a featurizer for HoloClean
+        :param n : number of random variables
+        :param l: number of classes
+        :param update_flag: True if the values in tensor of the featurizer
+        need be updated
 
-        :param session: session object
         """
-        self.session = session
-        self.dataengine = session.holo_env.dataengine
-        self.dataset = session.dataset
-
-        # Replacing this variable with a list of factors
-        # if the Signal creates a dataframe instead of using SQL
-        self.direct_insert = False
+        super(Featurizer, self).__init__()
+        self.update_flag = update_flag
+        self.N = N
+        self.L = L
+        self.tensor = None
 
         # These values must be overridden in subclass
         self.offset = 0  # offset on the feature_id_map
-        self.id = 'Base'
+        """
+        The type of the featurizer will determine the way we tie the weights
+        0. No tieing
+        1. Tieing the weights in the domain
+        """
+        self.type = None
         self.count = 0
+        self.id = "Base"
+
+    def forward(self):
+        """
+        Forward step of the featurizer
+        Creates the tensor for this specific feature
+        """
+        if self.tensor is None:
+            self.create_tensor()
+        else:
+            if self.update_flag:
+                #if the weights are updated we need to create again the tensor
+                self.create_tensor()
+
+        return self.tensor
 
     @abstractmethod
-    def get_query(self):
+    def create_tensor(self):
         """
-         This method creates a string or strings of the query/queries that are
-         used to create the Signal
+        This method creates the tensor for the feature
+        """
+        return self.tensor
 
-        :return a string or a list of strings of the query/queries that
-         are used to create the Signal
-        """
-        pass
+
+
+
+
