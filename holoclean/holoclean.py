@@ -481,6 +481,8 @@ class Session:
                       exc_info=e)
         try:
             self._create_dimensions(clean= 0)
+            for featurizer in self.featurizers:
+                featurizer.set_test_dimensions(self.N, self.L)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Test Featurization: ' + str(end - start) + '\n'
@@ -505,6 +507,7 @@ class Session:
             self.holo_env.logger.\
                 error('Error Creating Prediction Tensor: nothing to infer',
                       exc_info=e)
+            raise e
 
         return self._create_corrected_dataset()
 

@@ -25,7 +25,8 @@ class InitFeaturizer(Featurizer):
         self.tensor = None
 
         if not self.update_flag:
-            self.tensor_train = self.create_tensor()
+            self.tensor_train = self.create_tensor(1, self.N, self.L)
+
         self.parameters = ParameterList()
 
     def create_tensor(self, clean=1, N=None, L=None):
@@ -33,10 +34,7 @@ class InitFeaturizer(Featurizer):
         This method creates the tensor for the feature
         """
         self.execute_query(clean)
-        if clean:
-            tensor = torch.zeros(self.N, self.M, self.L)
-        else:
-            tensor = torch.zeros(N, self.M, L)
+        tensor = torch.zeros(N, self.M, L)
 
         query = "SELECT * FROM " + self.table_name
         feature_table = self.dataengine.query(query, 1).collect()

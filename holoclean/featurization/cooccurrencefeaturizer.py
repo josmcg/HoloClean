@@ -36,8 +36,9 @@ class CooccurFeaturizer(Featurizer):
         self.type = 1
         self.M = self.count
         self.tensor = None
+
         if not self.update_flag:
-            self.tensor_train = self.create_tensor()
+            self.tensor_train = self.create_tensor(1, self.N, self.L)
         self.parameters = ParameterList()
 
     def create_tensor(self, clean=1, N=None, L=None):
@@ -52,11 +53,11 @@ class CooccurFeaturizer(Featurizer):
 
         if clean:
             vid_list = self.pruning_object.v_id_clean_list
-            tensor = torch.zeros(self.N, self.M, self.L)
 
         else:
             vid_list = self.pruning_object.v_id_dk_list
-            tensor = torch.zeros(N, self.M, L)
+
+        tensor = torch.zeros(N, self.M, L)
 
         for vid in range(len(vid_list)):
             for cell_index in cell_values[vid_list[vid][0] - 1]:

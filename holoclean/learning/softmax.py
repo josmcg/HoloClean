@@ -8,6 +8,7 @@ from tqdm import tqdm
 import numpy as np
 import torch.nn.functional as F
 from holoclean.featurization.featurizer import Featurizer
+from softmaxthreading import ModuleThread
 
 
 class LogReg(torch.nn.Module):
@@ -255,7 +256,7 @@ class SoftMax:
         """
         x_val = None
         for featurizer in featurizers:
-            sub_tensor = featurizer.forward(0, N, L)
+            sub_tensor = featurizer.forward(0)
             if x_val is None:
                 x_val = sub_tensor
             else:
@@ -340,12 +341,18 @@ class SoftMax:
 \       :return: X tensors
         """
         X = None
+        module_threads = []
         for featurizer in featurizers:
-            sub_tensor = featurizer.forward()
+            module_thread = (ModuleThread(featurizer))
+            module_threads.append(module_thread)
+            module_thread.start()
+        for thread in module_threads:
+            thread.join()
             if X is None:
-                X = sub_tensor
+                X = thread.tensor
             else:
-                X = torch.cat((X,sub_tensor),1)
+                X = torch.cat((X,thread.tensor),1)
+
         return X
 
     def save_prediction(self, Y):
