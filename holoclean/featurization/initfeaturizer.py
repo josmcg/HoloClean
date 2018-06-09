@@ -5,7 +5,7 @@ from torch.nn import ParameterList
 
 class InitFeaturizer(Featurizer):
 
-    def __init__(self, N, L,session, update_flag=False):
+    def __init__(self, N, L, session, update_flag=False):
         """
         Creates a pytorch module which will be a featurizer for HoloClean
         :param N : number of random variables

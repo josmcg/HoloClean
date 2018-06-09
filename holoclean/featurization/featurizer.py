@@ -42,17 +42,17 @@ class Featurizer(nn.Module):
         overridden
         """
         if clean:
-            #training
+            # training
 
             if self.tensor_train is None:
                 self.tensor_train = self.create_tensor(clean, self.N, self.L)
             else:
                 if self.update_flag:
                     # if the weights are updated we need to create again the tensor
-                    self.tensor_train =  self.create_tensor(clean, self.N, self.L)
+                    self.tensor_train = self.create_tensor(clean, self.N, self.L)
             return self.tensor_train
         else:
-            #testing
+            # testing
             if self.test_N is None or self.test_L is None:
                 raise EnvironmentError("test dimensions not set")
             if self.tensor_test is None:
