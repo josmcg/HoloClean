@@ -3,6 +3,7 @@ import torch
 from holoclean.global_variables import GlobalVariables
 from featurizer import Featurizer
 from torch.nn import ParameterList
+from module_dbworker import ModuleThreading
 
 class DCFeaturizer(Featurizer):
 
@@ -32,6 +33,7 @@ class DCFeaturizer(Featurizer):
         if not self.update_flag:
             self.tensor_train = self.create_tensor(1, self.N, self.L)
         self.parameters = ParameterList()
+        self.module_threading = None
 
     def create_tensor(self,clean=1, N=None, L=None):
         """
@@ -41,8 +43,7 @@ class DCFeaturizer(Featurizer):
         self.M = self.count
         tensor = torch.zeros(N, self.M, L)
 
-        query = "SELECT * FROM " + self.table_name
-        feature_table = self.dataengine.query(query, 1).collect()
+        feature_table = self.module_threading.retrieve().collect()
         for factor in feature_table:
             tensor[factor.vid - 1, factor.feature - 1,
                    factor.assigned_val - 1] = factor['count']
@@ -217,13 +218,9 @@ class DCFeaturizer(Featurizer):
         self.count = len(dc_queries)
         table_name = self.id + str(clean)
         self.table_name = self.dataset.table_specific_name(table_name)
-        query_for_table = "CREATE TABLE " + self.table_name + \
-                                  "(vid INT, assigned_val INT," \
-                                  " feature INT ,count INT);"
-        self.dataengine.query(query_for_table)
 
-        #execute dc_queries
-        for query in dc_queries:
-            self.dataengine.query(
-                "INSERT INTO " + self.table_name + "(" + query + ");")
+        self.module_threading = ModuleThreading(self.table_name, self.session)
+
+        # execute dc_queries
+        self.module_threading.run_queries(dc_queries)
         return
