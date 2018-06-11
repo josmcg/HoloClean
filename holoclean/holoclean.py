@@ -19,7 +19,7 @@ import multiprocessing
 from errordetection.errordetector_wrapper import ErrorDetectorsWrapper
 
 from global_variables import GlobalVariables
-from learning.softmax import SoftMax
+from learning.prediction_layer import Net
 from learning.accuracy import Accuracy
 
 from featurization.initfeaturizer import InitFeaturizer
@@ -121,7 +121,7 @@ arguments = [
       'dest': 'learning_iterations',
       'default': 20,
       'type': float,
-      'help': 'Number of iterations used for softmax'}),
+      'help': 'Number of iterations used for prediction'}),
     (('-w', '--weight_decay'),
      {'metavar': 'WEIGHT_DECAY',
       'dest':  'weight_decay',
@@ -423,7 +423,7 @@ class Session:
 
     def repair(self):
         """
-        Repairs the initial data includes pruning, featurization, and softmax
+        Repairs the initial data includes pruning, featurization, and prediction
 
         :return: repaired dataset
         """
@@ -464,8 +464,8 @@ class Session:
                                           str(end - start))
 
                 start = time.time()
-            soft = SoftMax(self)
-            soft.logreg(self.featurizers)
+            model = Net(self)
+            model.logreg(self.featurizers)
 
             if self.holo_env.verbose:
                 end = time.time()
@@ -491,9 +491,9 @@ class Session:
                     info('Time for Test Featurization dk: ' + str(end - start))
                 start = time.time()
 
-            Y = soft.prediction(self.featurizers, soft.model,self.N,self.L,
-                             soft.setupMask(0, self.N, self.L))
-            soft.save_prediction(Y)
+            Y = model.prediction(self.featurizers, model.model,self.N,self.L,
+                             model.setupMask(0, self.N, self.L))
+            model.save_prediction(Y)
             if self.holo_env.verbose:
                 end = time.time()
                 log = 'Time for Inference: ' + str(end - start) + '\n'
@@ -501,7 +501,7 @@ class Session:
                 self.holo_env.logger.info('Time for Inference: ' +
                                           str(end - start))
 
-            soft.log_weights()
+            model.log_weights()
 
         except Exception as e:
             self.holo_env.logger.\

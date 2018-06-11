@@ -8,7 +8,7 @@ from tqdm import tqdm
 import numpy as np
 import torch.nn.functional as F
 from holoclean.featurization.featurizer import Featurizer
-from softmaxthreading import ModuleThread
+from module_threading import ModuleThread
 
 
 class LogReg(torch.nn.Module):
@@ -96,7 +96,7 @@ class LogReg(torch.nn.Module):
                 self.W = torch.cat((self.W, tensor), 0)
 
 
-class SoftMax:
+class Net:
 
     def __init__(self, session):
         """
