@@ -39,24 +39,16 @@ class LogReg(torch.nn.Module):
             self.weight_tensors.append(signals_W)
         return
 
-    def __init__(self, featurizers, output_dim,
-                 tie_init, tie_dc):
+    def __init__(self, featurizers, output_dim):
         """
         Constructor for our logistic regression
         :param featurizers: a list of featurizer modules
         :param output_dim: number of classes
-        :param tie_init: boolean, determines weight tying for init features
-        :param tie_dc: boolean, determines weight tying for dc features
         """
         super(LogReg, self).__init__()
 
         self.featurizers = featurizers
-
         self.output_dim = output_dim
-
-        self.tie_init = tie_init
-        self.tie_dc = tie_dc
-
         self._setup_weights()
 
     def forward(self, X, index, mask):
@@ -170,21 +162,17 @@ class Net:
         return mask
 
     def build_model(self,  featurizers,
-                    output_dim, tie_init=True, tie_DC=True):
+                    output_dim):
         """
         Initializes the logreg part of our model
         :param featurizers: list of featurizers
         :param input_dim_dc: number of dc features
         :param output_dim: number of classes
-        :param tie_init: boolean to decide weight tying for init features
-        :param tie_DC: boolean to decide weight tying for dc features
         :return: newly created LogReg model
         """
         model = LogReg(
             featurizers,
-            output_dim,
-            tie_init,
-            tie_DC)
+            output_dim)
         return model
 
     def train(self, model, loss, optimizer, x_val, y_val, mask=None):
