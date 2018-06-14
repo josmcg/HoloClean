@@ -47,6 +47,7 @@ class HoloDetect(ErrorDetection):
                 optimizer.step()
                 # TODO add learning related printing for verbose mode
         # here we add examples at each step if we have a high enough certainty
+
         for i in range(self.learning_params["secondary_epochs"]):
             pass
 
