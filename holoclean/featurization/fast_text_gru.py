@@ -15,17 +15,7 @@ class FastTextEmbeddingBag(EmbeddingBag):
         super(FastTextEmbeddingBag, self).__init__(input_matrix_shape[0], input_matrix_shape[1])
         self.weight.data.copy_(torch.FloatTensor(input_matrix))
 
-    def forward(self, input, batch=False, seq_len= 0):
-        if batch:
-            seq = []
-            for sentence in input:
-                tensor = self.get_embedding(sentence).reshape(-1, 1, 100)
-                seq.append(tensor)
-            return torch.nn.utils.rnn.pad_sequence(seq)
-        else:
-            return self.get_embedding(input).reshape(-1, 1, 100)
-
-    def get_embedding(self, words):
+    def forward(self, words):
         word_subinds = np.empty([0], dtype=np.int64)
         word_offsets = [0]
 
@@ -36,13 +26,13 @@ class FastTextEmbeddingBag(EmbeddingBag):
         word_offsets = word_offsets[:-1]
         ind = Variable(torch.LongTensor(word_subinds))
         offsets = Variable(torch.LongTensor(word_offsets))
-        return super(FastTextEmbeddingBag, self).forward(ind, offsets)
+        return super(FastTextEmbeddingBag, self).forward(ind, offsets).reshape(-1, 1, 100)
 
 
 class FastTextGRU(nn.Module):
     USE_PRETRAINED= 0
 
-    def __init__(self,corpus, seq_len, path=None):
+    def __init__(self, corpus, seq_len, path=None):
         """
         Initializes a FastText embedding that is fed into a GRU
         :param N: number of examples
@@ -59,6 +49,7 @@ class FastTextGRU(nn.Module):
         # TODO how do we control the # of features per embedding?
         self.gru_feats = 100
         self.gru = nn.GRU(self.gru_feats, 1, self.seq_len)
+        self.embed_vecs = None
 
     def get_embedding(self):
         if self.corpus == self.USE_PRETRAINED:
@@ -76,16 +67,22 @@ class FastTextGRU(nn.Module):
         embedding.save_model(embedding_path)
         return FastTextEmbeddingBag(embedding_path)
 
-    def forward(self, examples):
+    # def load_data(self, examples):
+    #     batch = isinstance(examples, type([]))
+    #     self.embedding.input = examples
+    #     embeddings = self.embedding(batch)
+    #     embeddings = embeddings.reshape(-1, len(examples) if batch else 1, self.gru_feats)
+    #     self.embed_vecs = embeddings
+
+    def forward(self,words):
         """
         Foward method of the FastText GRU
         !!Important, this only supports batch sizes of size 1 at the moment
         :param example:
         :return:
         """
-        batch = isinstance(examples, type([]))
-        embeddings = self.embedding(examples, batch)
-        embeddings = embeddings.reshape(-1, len(examples) if batch else 1, self.gru_feats)
+        embeddings = self.embedding(words)
+        embeddings = embeddings.reshape(-1,  1, self.gru_feats)
         return self.gru(embeddings)
 
 
