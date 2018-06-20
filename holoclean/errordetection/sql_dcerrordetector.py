@@ -2,12 +2,14 @@ from errordetector import ErrorDetection
 from holoclean.global_variables import GlobalVariables
 from holoclean.utils.parser_interface import DenialConstraint
 import time
+import torch
+from torch import nn
 
 
 __metaclass__ = type
 
 
-class SqlDCErrorDetection(ErrorDetection):
+class SqlDCErrorDetection(ErrorDetection, nn.Module):
     """
     This class is a subclass of ErrorDetection class and
     will returns don't know cells and clean cells based on the
@@ -30,6 +32,7 @@ class SqlDCErrorDetection(ErrorDetection):
         self.noisy_cells = None
         self.dc_objects = session.dc_objects
         self.Denial_constraints = session.Denial_constraints
+        self.dfs = None
 
     # Internals Methods
     @staticmethod
@@ -47,7 +50,7 @@ class SqlDCErrorDetection(ErrorDetection):
                 result = False
         return result
 
-    def _get_noisy_cells_for_dc(self, dc_name):
+    def _get_noisy_cells_for_dc(self, dc_name, table_id):
         """
         Returns a dataframe that consist of index of noisy cells index and
         attribute
@@ -116,24 +119,27 @@ class SqlDCErrorDetection(ErrorDetection):
             self.dataengine.dataframe_to_table(name, attribute_dataframe)
 
             distinct = \
-                "(SELECT DISTINCT " + tuple_name + "_ind " \
+                "(SELECT  " + tuple_name + "_ind " \
                                                    " FROM " + \
                 temp_table + ") AS row_table"
 
             query = "INSERT INTO " + \
-                    self.dataset.table_specific_name("C_dk_temp") + \
+                    self.dataset.table_specific_name(table_id) + \
                     " SELECT row_table. " + tuple_name + "_ind as ind," \
                     " a.attr_name as attr FROM " + \
                     name + \
                     " AS a," + \
                     distinct
             self.dataengine.query(query)
+            df = self.dataengine.get_table_to_dataframe(table_id, self.dataset)
+            print(df)
             self.holo_obj.logger.info('Denial Constraint Query Left ' +
                                       dc_name + ":" + query)
             drop_temp_table = "DROP TABLE " + name
             self.dataengine.query(drop_temp_table)
         drop_temp_table = "DROP TABLE " + temp_table
         self.dataengine.query(drop_temp_table)
+        return df
 
     def _get_sym_noisy_cells_for_dc(self, dc_name):
         """
@@ -198,7 +204,7 @@ class SqlDCErrorDetection(ErrorDetection):
 
         # Left part of predicates
         distinct_left = \
-            "(SELECT DISTINCT t1_ind  FROM " + temp_table + ") AS row_table"
+            "(SELECT t1_ind  FROM " + temp_table + ") AS row_table"
 
         query_left = "INSERT INTO " + \
                      self.dataset.table_specific_name("C_dk_temp") + \
@@ -207,13 +213,14 @@ class SqlDCErrorDetection(ErrorDetection):
                      t1_name + \
                      " AS a," + \
                      distinct_left
-        self.dataengine.query(query_left)
-
+        df = self.dataengine.query(query_left, 1)
+        print(df)
         self.holo_obj.logger.info('Denial Constraint Query Left ' +
                                   dc_name + ":" + query_left)
 
         drop_temp_table = "DROP TABLE " + temp_table
         self.dataengine.query(drop_temp_table)
+        return df
 
     # Getters
     def get_noisy_cells(self):
@@ -224,17 +231,23 @@ class SqlDCErrorDetection(ErrorDetection):
         :return: spark_dataframe
         """
 
-        table_name = self.dataset.table_specific_name("C_dk_temp")
-        query_for_creation_table = "CREATE TABLE " + table_name + \
-                                   "(ind INT, attr VARCHAR(255));"
-        self.dataengine.query(query_for_creation_table)
-        for dc_name in self.dc_objects:
-            self._get_noisy_cells_for_dc(dc_name)
 
-        c_dk_drataframe = self.dataengine.\
-            get_table_to_dataframe("C_dk_temp", self.dataset)
-        self.noisy_cells = c_dk_drataframe['ind', 'attr'].distinct()
-        return self.noisy_cells
+        dfs = []
+        for (idx, dc_name) in enumerate(self.dc_objects):
+            table_id = "C_dk_temp" + str(idx)
+            table_name = self.dataset.table_specific_name(table_id)
+            query_for_creation_table = "CREATE TABLE " + table_name + \
+                                       "(ind INT, attr VARCHAR(255));"
+            self.dataengine.query(query_for_creation_table)
+            df = self._get_noisy_cells_for_dc(dc_name,table_id)
+            dfs.append(df)
+
+
+        # c_dk_drataframe = self.dataengine.\
+        #     get_table_to_dataframe("C_dk_temp", self.dataset)
+        # self.noisy_cells = c_dk_drataframe['ind', 'attr']
+        self.dfs = dfs
+        return dfs
 
     def get_clean_cells(self):
         """
@@ -246,3 +259,18 @@ class SqlDCErrorDetection(ErrorDetection):
         c_clean_dataframe = self.session.init_flat.\
             subtract(self.noisy_cells)
         return c_clean_dataframe
+
+    def forward(self, example):
+        index, attr, value = example
+        ret = torch.zeros(len(self.Denial_constraints))
+        if self.dfs == None:
+            self.get_noisy_cells()
+        for (idx,df) in enumerate(self.dfs):
+            query_string = "ind = {} AND attr = '{}'".format(index,attr)
+            try:
+                num = df.groupby("ind","attr").count().filter(query_string).collect()[0]["count"]
+            except IndexError as e:
+                 num = 0
+            ret[idx] = num
+        return ret
+

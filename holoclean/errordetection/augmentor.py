@@ -15,8 +15,9 @@ class Augmentor:
         self.augmentation_rules = augmentation_rules
         self.session = session
         self.ground_truth_path = ground_truth_path
-        # Todo this is essentially psuedocode
         self.labeled_set = self._labeled_table()
+        self.train = None
+        self.test = None
 
     def add_example(self, example):
         """
@@ -41,13 +42,25 @@ class Augmentor:
             .withColumnRenamed("rv_attr", "c_rv_attr")\
             .join(flattened_init.alias('init'), [col("c_rv_index") == col("init.rv_index")
             , col("c_rv_attr") == col("init.rv_attr")])
-        joined = joined.drop("c_rv_attr", "c_rv_index", "attr_val_clean")
+        joined = joined.drop("c_rv_attr", "c_rv_index")
         labels = joined.withColumn("error",  ~ (col("attr_val") == col("attr_val_clean")))
+        labels = labels.drop("attr_val_clean")
 
         return labels
 
     def get(self):
         return self.labeled_set
+
+    def split(self, frac):
+        """
+        split the known values into a train-test split
+        :param frac: the fraction of examples to be used as training data
+        :return: the train and test frames as (train, test)
+        """
+        splits = self.labeled_set.randomSplit([frac, 1-frac])
+        self.train = splits[0]
+        self.test = splits[1]
+        return splits[0], splits[1]
 
     def _flatten_init(self, session):
         """

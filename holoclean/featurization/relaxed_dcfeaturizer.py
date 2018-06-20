@@ -44,6 +44,7 @@ class DCFeaturizer(Featurizer):
         tensor = torch.zeros(N, self.M, L)
 
         feature_table = self.module_threading.retrieve().collect()
+        print(feature_table.show(5))
         for factor in feature_table:
             tensor[factor.vid - 1, factor.feature - 1,
                    factor.assigned_val - 1] = factor['count']
