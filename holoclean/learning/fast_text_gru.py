@@ -30,8 +30,7 @@ class FastTextEmbeddingBag(EmbeddingBag):
 
 
 class FastTextGRU(nn.Module):
-    USE_PRETRAINED= 0
-
+    USE_PRETRAINED = 0
     def __init__(self, corpus, seq_len, path=None):
         """
         Initializes a FastText embedding that is fed into a GRU
@@ -67,14 +66,8 @@ class FastTextGRU(nn.Module):
         embedding.save_model(embedding_path)
         return FastTextEmbeddingBag(embedding_path)
 
-    # def load_data(self, examples):
-    #     batch = isinstance(examples, type([]))
-    #     self.embedding.input = examples
-    #     embeddings = self.embedding(batch)
-    #     embeddings = embeddings.reshape(-1, len(examples) if batch else 1, self.gru_feats)
-    #     self.embed_vecs = embeddings
 
-    def forward(self,words):
+    def forward(self, words):
         """
         Foward method of the FastText GRU
         !!Important, this only supports batch sizes of size 1 at the moment

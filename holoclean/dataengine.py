@@ -166,7 +166,7 @@ class DataEngine:
                                        exc_info=e)
             print "Could not execute Query ", sql_query, "Check log for info"
             self.db_backend[1].rollback()
-            exit(5)
+            raise Exception("query failed")
 
     def ingest_data(self, filepath, dataset):
         """
