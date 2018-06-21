@@ -24,7 +24,7 @@ from learning.accuracy import Accuracy
 
 from featurization.initfeaturizer import InitFeaturizer
 from featurization.cooccurrencefeaturizer import CooccurFeaturizer
-from featurization.dcfeaturizer import DCFeaturizer
+from featurization.relaxed_dcfeaturizer import RelaxedDCFeaturizer
 
 
 
@@ -448,7 +448,7 @@ class Session:
         init_signal = InitFeaturizer(self.N, self.L, self)
         self._add_featurizer(init_signal)
 
-        dc_signal = DCFeaturizer(self.N, self.L, self, self.Denial_constraints)
+        dc_signal = RelaxedDCFeaturizer(self.N, self.L, self, self.Denial_constraints)
         self._add_featurizer(dc_signal)
 
         coo_signal = CooccurFeaturizer(self.N, self.L, self)

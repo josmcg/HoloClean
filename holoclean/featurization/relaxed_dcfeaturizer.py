@@ -5,7 +5,7 @@ from featurizer import Featurizer
 from torch.nn import ParameterList
 from module_dbworker import ModuleThreading
 
-class DCFeaturizer(Featurizer):
+class RelaxedDCFeaturizer(Featurizer):
 
     def __init__(self, N, L,session, denial_constraints):
         """
@@ -15,7 +15,7 @@ class DCFeaturizer(Featurizer):
         :param session: HoloClean session
         :param denial_constraints: list of denial_constraints
         """
-        super(DCFeaturizer, self).__init__(N, L, False)
+        super(RelaxedDCFeaturizer, self).__init__(N, L, False)
         self.denial_constraints = denial_constraints
         self.session = session
         self.parser = session.parser
@@ -44,7 +44,6 @@ class DCFeaturizer(Featurizer):
         tensor = torch.zeros(N, self.M, L)
 
         feature_table = self.module_threading.retrieve().collect()
-        print(feature_table.show(5))
         for factor in feature_table:
             tensor[factor.vid - 1, factor.feature - 1,
                    factor.assigned_val - 1] = factor['count']
