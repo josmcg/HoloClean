@@ -1,15 +1,16 @@
-from errordetector import ErrorDetection
 from holoclean.global_variables import GlobalVariables
 from holoclean.utils.parser_interface import DenialConstraint
 import time
 import torch
 from torch import nn
+import pandas as pd
+from tqdm import tqdm
 
 
 __metaclass__ = type
 
 
-class SqlDCErrorDetection(ErrorDetection, nn.Module):
+class SqlDCErrorDetection(nn.Module):
     """
     This class is a subclass of ErrorDetection class and
     will returns don't know cells and clean cells based on the
@@ -20,11 +21,14 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
         """
         This constructor converts all denial constraints
         to the form of SQL constraints
-
         :param session: Holoclean session
         """
         super(SqlDCErrorDetection, self).\
-            __init__(session.holo_env, session.dataset)
+            __init__()
+        self.dataengine = session.holo_env.dataengine
+        self.dataset = session.dataset
+        self.spark_session = session.holo_env.spark_session
+        self.holo_obj = session.holo_env
         self.session = session
         self.index = GlobalVariables.index_name
         self.dc_parser = session.parser
@@ -33,6 +37,8 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
         self.dc_objects = session.dc_objects
         self.Denial_constraints = session.Denial_constraints
         self.dfs = None
+        self.count = len(self.Denial_constraints)
+        self.features = None
 
     # Internals Methods
     @staticmethod
@@ -121,18 +127,17 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
             distinct = \
                 "(SELECT  " + tuple_name + "_ind " \
                                                    " FROM " + \
-                temp_table + ") AS row_table"
+                temp_table + ") AS row_table GROUP BY ind, attr"
 
             query = "INSERT INTO " + \
                     self.dataset.table_specific_name(table_id) + \
                     " SELECT row_table. " + tuple_name + "_ind as ind," \
-                    " a.attr_name as attr FROM " + \
+                    " a.attr_name as attr, count(*) as count FROM " + \
                     name + \
                     " AS a," + \
                     distinct
             self.dataengine.query(query)
             df = self.dataengine.get_table_to_dataframe(table_id, self.dataset)
-            print(df)
             self.holo_obj.logger.info('Denial Constraint Query Left ' +
                                       dc_name + ":" + query)
             drop_temp_table = "DROP TABLE " + name
@@ -214,7 +219,6 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
                      " AS a," + \
                      distinct_left
         df = self.dataengine.query(query_left, 1)
-        print(df)
         self.holo_obj.logger.info('Denial Constraint Query Left ' +
                                   dc_name + ":" + query_left)
 
@@ -233,21 +237,18 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
 
 
         dfs = []
+        table_ids = []
         for (idx, dc_name) in enumerate(self.dc_objects):
             table_id = "C_dk_temp" + str(idx)
+            table_ids.append(table_id)
             table_name = self.dataset.table_specific_name(table_id)
             query_for_creation_table = "CREATE TABLE " + table_name + \
-                                       "(ind INT, attr VARCHAR(255));"
+                                       "(ind INT, attr VARCHAR(255), count INT);"
             self.dataengine.query(query_for_creation_table)
             df = self._get_noisy_cells_for_dc(dc_name,table_id)
             dfs.append(df)
-
-
-        # c_dk_drataframe = self.dataengine.\
-        #     get_table_to_dataframe("C_dk_temp", self.dataset)
-        # self.noisy_cells = c_dk_drataframe['ind', 'attr']
         self.dfs = dfs
-        return dfs
+        return self.dfs
 
     def get_clean_cells(self):
         """
@@ -261,16 +262,19 @@ class SqlDCErrorDetection(ErrorDetection, nn.Module):
         return c_clean_dataframe
 
     def forward(self, example):
-        index, attr, value = example
+        index, attr,val = example
         ret = torch.zeros(len(self.Denial_constraints))
-        if self.dfs == None:
+        if self.dfs is None:
             self.get_noisy_cells()
-        for (idx,df) in enumerate(self.dfs):
-            query_string = "ind = {} AND attr = '{}'".format(index,attr)
+        for (idx, df) in enumerate(self.dfs):
+            query_string = "ind = {} AND attr = '{}'".format(index, attr)
             try:
-                num = df.groupby("ind","attr").count().filter(query_string).collect()[0]["count"]
+                num = df.filter(query_string).select("count")
+                ret[idx] = num.collect()[0]["count"]
             except IndexError as e:
-                 num = 0
-            ret[idx] = num
+                ret[idx] = 0
         return ret
+
+
+
 

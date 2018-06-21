@@ -1,8 +1,11 @@
 from holoclean.global_variables import GlobalVariables
-from pyspark.sql.functions import col
+import pyspark.sql.functions as F
+from torch.utils.data import Dataset
+from pyspark.sql.window import *
+
 
 class Augmentor:
-    def __init__(self,ground_truth_path, session, augmentation_rules=None):
+    def __init__(self, ground_truth_path, session, augmentation_rules=None):
         """
         Initialize an augmentation dataset handler
         :param ground_truth: a subset of cleaned data, flattened
@@ -11,13 +14,10 @@ class Augmentor:
             produce more cells with new labels
         :param session: a holoclean session object
         """
-
         self.augmentation_rules = augmentation_rules
         self.session = session
         self.ground_truth_path = ground_truth_path
         self.labeled_set = self._labeled_table()
-        self.train = None
-        self.test = None
 
     def add_example(self, example):
         """
@@ -40,16 +40,16 @@ class Augmentor:
             .withColumnRenamed("attr_val", "attr_val_clean")\
             .withColumnRenamed("rv_index", "c_rv_index")\
             .withColumnRenamed("rv_attr", "c_rv_attr")\
-            .join(flattened_init.alias('init'), [col("c_rv_index") == col("init.rv_index")
-            , col("c_rv_attr") == col("init.rv_attr")])
+            .join(flattened_init.alias('init'), [F.col("c_rv_index") == F.col("init.rv_index")
+            , F.col("c_rv_attr") == F.col("init.rv_attr")])
         joined = joined.drop("c_rv_attr", "c_rv_index")
-        labels = joined.withColumn("error",  ~ (col("attr_val") == col("attr_val_clean")))
+        labels = joined.withColumn("error",  ~ (F.col("attr_val") == F.col("attr_val_clean")))
         labels = labels.drop("attr_val_clean")
 
         return labels
 
     def get(self):
-        return self.labeled_set
+        return PySparkDataset(self.labeled_set)
 
     def split(self, frac):
         """
@@ -57,10 +57,14 @@ class Augmentor:
         :param frac: the fraction of examples to be used as training data
         :return: the train and test frames as (train, test)
         """
-        splits = self.labeled_set.randomSplit([frac, 1-frac])
-        self.train = splits[0]
-        self.test = splits[1]
-        return splits[0], splits[1]
+        pos_set = self.labeled_set.filter("error = True")
+        neg_set = self.labeled_set.filter("error = False")
+        pos_splits = pos_set.randomSplit([frac, 1-frac])
+        neg_splits = neg_set.randomSplit([frac/10, 1-frac/10])
+        pos_train = pos_splits[0]
+        neg_train = neg_splits[0]
+        train = pos_train.union(neg_train)
+        return PySparkDataset(train)
 
     def _flatten_init(self, session):
         """
@@ -124,3 +128,19 @@ class Augmentor:
 
         return session.holo_env.dataengine.get_table_to_dataframe(
             'ground_truth', session.dataset)
+
+
+class PySparkDataset(Dataset):
+    def __init__(self, df):
+        super(Dataset, self).__init__()
+        self.df = df.select("*").withColumn("id", F.row_number().over(Window.orderBy("rv_index")))
+
+    def __getitem__(self, index):
+        # handle the different index methods
+        index = index+1
+        row = self.df.filter("id = '{}'".format(index))\
+            .select("init.rv_index", "init.rv_attr", "init.attr_val", "error").collect()[0]
+        return row
+
+    def __len__(self):
+        return self.df.count() - 1
