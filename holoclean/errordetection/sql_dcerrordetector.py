@@ -3,9 +3,7 @@ from holoclean.utils.parser_interface import DenialConstraint
 import time
 import torch
 from torch import nn
-import pandas as pd
-from tqdm import tqdm
-
+import numpy
 
 __metaclass__ = type
 
@@ -39,6 +37,8 @@ class SqlDCErrorDetection(nn.Module):
         self.dfs = None
         self.count = len(self.Denial_constraints)
         self.features = None
+        self.table_ids = None
+        self.get_noisy_cells()
 
     # Internals Methods
     @staticmethod
@@ -236,7 +236,7 @@ class SqlDCErrorDetection(nn.Module):
         """
 
 
-        dfs = []
+        df = None
         table_ids = []
         for (idx, dc_name) in enumerate(self.dc_objects):
             table_id = "C_dk_temp" + str(idx)
@@ -245,9 +245,16 @@ class SqlDCErrorDetection(nn.Module):
             query_for_creation_table = "CREATE TABLE " + table_name + \
                                        "(ind INT, attr VARCHAR(255), count INT);"
             self.dataengine.query(query_for_creation_table)
-            df = self._get_noisy_cells_for_dc(dc_name,table_id)
-            dfs.append(df)
-        self.dfs = dfs
+            sub_df = self._get_noisy_cells_for_dc(dc_name,table_id)
+            if df is None:
+                df = sub_df.withColumnRenamed("count", "count{}".format(idx))
+
+            else:
+                df = df.join(sub_df.withColumnRenamed("count","count{}".format(idx)),
+                                    ["ind", "attr"],"outer")
+        self.dfs = df.na.fill(0).distinct()
+        self.dataengine.dataframe_to_table(self.dataset.table_specific_name("DC"),self.dfs)
+        self.dataengine.query("CREATE INDEX row_index ON {} (ind)".format(self.dataset.table_specific_name("DC")))
         return self.dfs
 
     def get_clean_cells(self):
@@ -261,18 +268,20 @@ class SqlDCErrorDetection(nn.Module):
             subtract(self.noisy_cells)
         return c_clean_dataframe
 
+
     def forward(self, example):
-        index, attr,val = example
+        index, attr, val = example
         ret = torch.zeros(len(self.Denial_constraints))
-        if self.dfs is None:
-            self.get_noisy_cells()
-        for (idx, df) in enumerate(self.dfs):
-            query_string = "ind = {} AND attr = '{}'".format(index, attr)
-            try:
-                num = df.filter(query_string).select("count")
-                ret[idx] = num.collect()[0]["count"]
-            except IndexError as e:
-                ret[idx] = 0
+        query_str = "SELECT * FROM {} WHERE ind = {} AND attr ='{}'"\
+            .format(self.dataset.table_specific_name("DC"),index, attr)
+        ans = self.dataengine.query(query_str, 1)
+        ans = ans.drop("ind", "attr")
+        df_unpack = ans.collect()
+        if len(df_unpack) == 0:
+            return ret
+        else:
+            ret = numpy.array(df_unpack[0])
+            ret = torch.from_numpy(ret)
         return ret
 
 
