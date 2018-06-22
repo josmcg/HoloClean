@@ -49,7 +49,7 @@ class Augmentor:
         return labels
 
     def get(self):
-        return PySparkDataset(self.labeled_set)
+        return PySparkDataset(self.labeled_set, "seed", self.session)
 
     def split(self, frac):
         """
@@ -64,7 +64,7 @@ class Augmentor:
         pos_train = pos_splits[0]
         neg_train = neg_splits[0]
         train = pos_train.union(neg_train)
-        return PySparkDataset(train)
+        return PySparkDataset(train,"train", self.session)
 
     def _flatten_init(self, session):
         """
@@ -131,16 +131,29 @@ class Augmentor:
 
 
 class PySparkDataset(Dataset):
-    def __init__(self, df):
+    def __init__(self, df, id, session):
         super(Dataset, self).__init__()
         self.df = df.select("*").withColumn("id", F.row_number().over(Window.orderBy("rv_index")))
+        self.dataengine = session.holo_env.dataengine
+        self.table_id = self.create_table(self.df, id, session)
+        self.len = self.df.count() - 1
 
     def __getitem__(self, index):
         # handle the different index methods
         index = index+1
-        row = self.df.filter("id = '{}'".format(index))\
-            .select("init.rv_index", "init.rv_attr", "init.attr_val", "error").collect()[0]
-        return row
+        query_str = "SELECT * FROM {} WHERE id = {}".format(self.table_id, index)
+        returned_df = self.dataengine.query(query_str, 1).drop("id")
+        row = returned_df.collect()[0]
+        return row["rv_index"], row["rv_attr"], row["attr_val"], row["error"]
 
     def __len__(self):
-        return self.df.count() - 1
+        return self.len
+
+    def create_table(self, df, id, session):
+        dataengine = session.holo_env.dataengine
+        table_id = session.dataset.table_specific_name(id)
+        dataengine.dataframe_to_table(table_id, df)
+        return table_id
+
+
+

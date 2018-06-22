@@ -253,6 +253,9 @@ class DataEngine:
                         GlobalVariables.index_name:
 
                     create_table = create_table + "DOUBLE PRECISION,"
+                elif dataframe.schema.fields[i].dataType  == BooleanType():
+                    create_table += "BOOLEAN,"
+
 
                 else:
 
