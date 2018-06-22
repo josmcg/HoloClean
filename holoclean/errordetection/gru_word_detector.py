@@ -75,9 +75,13 @@ class FastTextGRU(nn.Module):
         :return:
         """
         index, attr, val = example
-        embeddings = self.embedding([val])
+        val = val.decode("utf-8")
+        val = unicode(val)
+        embeddings = self.embedding(val.split())
         embeddings = embeddings.reshape(-1,  1, self.gru_feats)
-        return self.gru(embeddings)
+        x, h = self.gru(embeddings)
+        return x.squeeze()[len(val.split()) -1, :]
+
 
 
 

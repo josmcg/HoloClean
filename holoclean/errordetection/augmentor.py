@@ -1,10 +1,10 @@
 from holoclean.global_variables import GlobalVariables
-import pyspark.sql.functions as F
 from torch.utils.data import Dataset
 from pyspark.sql.window import *
 import pandas as pd
 import pandas.io.sql as sqlio
 from sklearn.model_selection import train_test_split
+import torch
 
 class Augmentor:
     def __init__(self, ground_truth_path, session, augmentation_rules=None):
@@ -44,7 +44,7 @@ class Augmentor:
         return joined
 
     def get(self):
-        return PySparkDataset(self.labeled_set, "seed", self.session)
+        return PySparkDataset(self.labeled_set)
 
     def split(self, frac):
         """
@@ -52,8 +52,8 @@ class Augmentor:
         :param frac: the fraction of examples to be used as training data
         :return: the train and test frames as (train, test)
         """
-        train, test = train_test_split(self.labeled_set, test_size=frac)
-        return PySparkDataset(train,"train", self.session)
+        train, test = train_test_split(self.labeled_set, test_size=1-frac)
+        return PySparkDataset(train)
 
     def _flatten_init(self, session):
         """
@@ -117,10 +117,7 @@ class Augmentor:
         return sqlio.read_sql_query("SELECT * FROM {}".format(session.dataset.table_specific_name("ground_truth")), self.conn)
 
     def test(self):
-        pos_set = self.labeled_set.filter("error = True")
-        neg_set = self.labeled_set.filter("error = False")
-        test = pos_set.union(neg_set)
-        return PySparkDataset(test, "test", self.session)
+        return PySparkDataset(self.labeled_set)
 
 
 class PySparkDataset(Dataset):
@@ -131,9 +128,8 @@ class PySparkDataset(Dataset):
     def __getitem__(self, index):
         # handle the different index methods
         returned_df = self.df.iloc[index]
-        row = returned_df.drop("id", axis=1)
-        row = row.to_dict('records')[0]
-        return row["rv_index"], row["rv_attr"], row["attr_val"], row["error"]
+        row = returned_df.to_dict()
+        return row["rv_index"], row["rv_attr"], row["attr_val"], row["error"].astype(int)
 
     def __len__(self):
         return self.df.shape[0]

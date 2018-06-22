@@ -97,7 +97,7 @@ class HoloDetect(ErrorDetection):
         tot = len(preds)
         corr = 0.0
         err_caught = 0.0
-        total_err= all_examples.df.filter("error = True").count()
+        total_err= all_examples.df[all_examples.df["error"]].shape[0]
         for (idx, pred) in enumerate(preds):
             truth = true_labels[idx]
             if truth == pred:
