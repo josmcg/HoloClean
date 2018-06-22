@@ -5,7 +5,7 @@ from holoclean.errordetection.augmentor import Augmentor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import time
-default_learning_params = {"epochs": 2, "lr": 0.1, "threshold": 0.88}
+default_learning_params = {"epochs": 4, "lr": 0.1, "threshold": 0.88}
 
 
 class HoloDetect(ErrorDetection):
@@ -32,10 +32,10 @@ class HoloDetect(ErrorDetection):
         dirty and clean variables
         :return: None
         """
-        self.train= self.get_split(frac=.2)
+        self.train= self.get_split(frac=.3)
         params = nn.ParameterList()
         feature_count = 0
-        for featurizer in self.featurizers:
+        for (idx,featurizer) in enumerate(self.featurizers):
             params.extend(featurizer.parameters())
             feature_count += featurizer.count
         linear_layer = nn.Linear(feature_count, 1)

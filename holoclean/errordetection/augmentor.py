@@ -2,7 +2,9 @@ from holoclean.global_variables import GlobalVariables
 import pyspark.sql.functions as F
 from torch.utils.data import Dataset
 from pyspark.sql.window import *
-
+import pandas as pd
+import pandas.io.sql as sqlio
+from sklearn.model_selection import train_test_split
 
 class Augmentor:
     def __init__(self, ground_truth_path, session, augmentation_rules=None):
@@ -16,6 +18,7 @@ class Augmentor:
         """
         self.augmentation_rules = augmentation_rules
         self.session = session
+        self.conn = session.holo_env.dataengine.db_backend[1]
         self.ground_truth_path = ground_truth_path
         self.labeled_set = self._labeled_table()
 
@@ -36,17 +39,9 @@ class Augmentor:
         """
         flattened_init = self._flatten_init(self.session)
         ground_truth = self.read_ground_truth(self.session)
-        joined = ground_truth\
-            .withColumnRenamed("attr_val", "attr_val_clean")\
-            .withColumnRenamed("rv_index", "c_rv_index")\
-            .withColumnRenamed("rv_attr", "c_rv_attr")\
-            .join(flattened_init.alias('init'), [F.col("c_rv_index") == F.col("init.rv_index")
-            , F.col("c_rv_attr") == F.col("init.rv_attr")])
-        joined = joined.drop("c_rv_attr", "c_rv_index")
-        labels = joined.withColumn("error",  ~ (F.col("attr_val") == F.col("attr_val_clean")))
-        labels = labels.drop("attr_val_clean")
-
-        return labels
+        joined = flattened_init.merge(ground_truth, on=["rv_index", "rv_attr"], suffixes=["","_truth"])
+        joined["error"] = joined.apply(lambda row: not(row["attr_val"] == row["attr_val_truth"]), axis = 1)
+        return joined
 
     def get(self):
         return PySparkDataset(self.labeled_set, "seed", self.session)
@@ -57,13 +52,7 @@ class Augmentor:
         :param frac: the fraction of examples to be used as training data
         :return: the train and test frames as (train, test)
         """
-        pos_set = self.labeled_set.filter("error = True")
-        neg_set = self.labeled_set.filter("error = False")
-        pos_splits = pos_set.randomSplit([frac, 1-frac])
-        neg_splits = neg_set.randomSplit([frac/10, 1-frac/10])
-        pos_train = pos_splits[0]
-        neg_train = neg_splits[0]
-        train = pos_train.union(neg_train)
+        train, test = train_test_split(self.labeled_set, test_size=frac)
         return PySparkDataset(train,"train", self.session)
 
     def _flatten_init(self, session):
@@ -101,8 +90,7 @@ class Augmentor:
                 session.holo_env.dataengine.query(query_insert)
         else:
             pass
-        return session.holo_env.dataengine.get_table_to_dataframe(
-            'Init_flat', session.dataset)
+        return sqlio.read_sql_query("SELECT * FROM {}".format(session.dataset.table_specific_name("Init_flat")), self.conn)
 
     def read_ground_truth(self, session):
         """
@@ -126,37 +114,29 @@ class Augmentor:
                 )
                 session.holo_env.dataengine.query(query_insert)
 
-        return session.holo_env.dataengine.get_table_to_dataframe(
-            'ground_truth', session.dataset)
-
+        return sqlio.read_sql_query("SELECT * FROM {}".format(session.dataset.table_specific_name("ground_truth")), self.conn)
 
     def test(self):
         pos_set = self.labeled_set.filter("error = True")
         neg_set = self.labeled_set.filter("error = False")
-        neg_test = self.labeled_set.randomSplit([.001,.999])[0]
-        test = pos_set.union(neg_test)
+        test = pos_set.union(neg_set)
         return PySparkDataset(test, "test", self.session)
 
 
-
 class PySparkDataset(Dataset):
-    def __init__(self, df, id, session):
+    def __init__(self, df):
         super(Dataset, self).__init__()
-        self.df = df.select("*").withColumn("id", F.row_number().over(Window.orderBy("rv_index")))
-        self.dataengine = session.holo_env.dataengine
-        self.table_id = self.create_table(self.df, id, session)
-        self.len = self.df.count() - 1
+        self.df = df
 
     def __getitem__(self, index):
         # handle the different index methods
-        index = index+1
-        query_str = "SELECT * FROM {} WHERE id = {}".format(self.table_id, index)
-        returned_df = self.dataengine.query(query_str, 1).drop("id")
-        row = returned_df.collect()[0]
+        returned_df = self.df.iloc[index]
+        row = returned_df.drop("id", axis=1)
+        row = row.to_dict('records')[0]
         return row["rv_index"], row["rv_attr"], row["attr_val"], row["error"]
 
     def __len__(self):
-        return self.len
+        return self.df.shape[0]
 
     def create_table(self, df, id, session):
         dataengine = session.holo_env.dataengine

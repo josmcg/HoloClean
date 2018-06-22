@@ -101,7 +101,6 @@ class DataEngine:
         :return: dataframe : Dataframe
                 The results of sql_query in a dataframe
         """
-
         url = self.sparkSqlUrl
         dataframe = self.sql_ctxt.read.jdbc(
             url=url[0], table="(" + sql_query + ") as tablename",

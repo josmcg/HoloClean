@@ -3,6 +3,8 @@ from holoclean.utils.parser_interface import DenialConstraint
 import time
 import torch
 from torch import nn
+import pandas as pd
+import pandas.io.sql as sqlio
 import numpy
 
 __metaclass__ = type
@@ -38,6 +40,8 @@ class SqlDCErrorDetection(nn.Module):
         self.count = len(self.Denial_constraints)
         self.features = None
         self.table_ids = None
+        self.cache = None
+        self.conn = session.holo_env.dataengine.db_backend[1]
         self.get_noisy_cells()
 
     # Internals Methods
@@ -257,32 +261,21 @@ class SqlDCErrorDetection(nn.Module):
         self.dataengine.query("CREATE INDEX row_index ON {} (ind)".format(self.dataset.table_specific_name("DC")))
         return self.dfs
 
-    def get_clean_cells(self):
-        """
-        Returns a dataframe that consists of index of clean cells index,
-         attribute
-
-        :return: spark dataframe
-        """
-        c_clean_dataframe = self.session.init_flat.\
-            subtract(self.noisy_cells)
-        return c_clean_dataframe
-
 
     def forward(self, example):
+        if self.cache is None:
+            query_str = "SELECT * FROM {}".format(self.dataset.table_specific_name("DC"))
+            self.cache = sqlio.read_sql_query(query_str, self.conn)
         index, attr, val = example
         ret = torch.zeros(len(self.Denial_constraints))
-        query_str = "SELECT * FROM {} WHERE ind = {} AND attr ='{}'"\
-            .format(self.dataset.table_specific_name("DC"),index, attr)
-        ans = self.dataengine.query(query_str, 1)
-        ans = ans.drop("ind", "attr")
-        df_unpack = ans.collect()
-        if len(df_unpack) == 0:
+        ans = self.cache[(self.cache["ind"] == int(index)) & (self.cache["attr"] == attr)]
+        ans = ans.drop(["ind", "attr"], axis=1)
+        if ans.empty:
             return ret
         else:
-            ret = numpy.array(df_unpack[0])
-            ret = torch.from_numpy(ret)
-        end = time.time()
+            df_unpack = ans.values
+            # ret = numpy.array(df_unpack)
+            ret = torch.from_numpy(df_unpack).squeeze()
         return ret
 
 
