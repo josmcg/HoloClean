@@ -282,6 +282,7 @@ class SqlDCErrorDetection(nn.Module):
         else:
             ret = numpy.array(df_unpack[0])
             ret = torch.from_numpy(ret)
+        end = time.time()
         return ret
 
 

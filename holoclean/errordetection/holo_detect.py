@@ -4,7 +4,7 @@ from torch import nn as nn, optim as optim
 from holoclean.errordetection.augmentor import Augmentor
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+import time
 default_learning_params = {"epochs": 2, "lr": 0.1, "threshold": 0.88}
 
 
@@ -32,10 +32,7 @@ class HoloDetect(ErrorDetection):
         dirty and clean variables
         :return: None
         """
-        self.train= self.get_split(frac=.1)
-        num_pos = self.train.df.filter("error = True").count()
-        print("train has {} errors".format(num_pos))
-        print("train has {} clean examples".format(self.train.df.count()- num_pos))
+        self.train= self.get_split(frac=.2)
         params = nn.ParameterList()
         feature_count = 0
         for featurizer in self.featurizers:
@@ -50,49 +47,57 @@ class HoloDetect(ErrorDetection):
         for epoch in range(self.learning_params["epochs"]):
             tot = float(len(self.train))
             agg = 0.0
-            for (idx, example) in tqdm(enumerate(train_loader)):
-                data = example[:3]
-                data = [item[0] for item in data]
-                label = example[3].float()
-                optimizer.zero_grad()
-                representation = self.featurizers[0].forward(data)
-                for featurizer in self.featurizers[1:]:
-                    sub_tensor = featurizer.forward(data)
-                    representation = torch.cat((representation, sub_tensor), 0)
-                scores = linear_layer(representation)
-                preds = sigmoid(scores)
-                loss = criterion(preds, label)
-                agg += loss.item()
-                loss.backward()
-                optimizer.step()
-            summary_str = "epoch {}: loss: {}".format(epoch, agg/float(tot))
-            print(summary_str)
+            with tqdm(total= len(self.train)) as pbar:
+                for (idx, example) in enumerate(train_loader):
+                    pbar.update(1)
+                    data = example[:3]
+                    data = [item[0] for item in data]
+                    label = example[3].float()
+                    optimizer.zero_grad()
+
+
+                    representation = self.featurizers[0].forward(data).float()
+                    for featurizer in self.featurizers[1:]:
+                        sub_tensor = featurizer.forward(data).float()
+                        representation = torch.cat((representation, sub_tensor), 0)
+
+                    scores = linear_layer(representation)
+                    preds = sigmoid(scores)
+                    loss = criterion(preds, label)
+                    agg += loss.item()
+                    loss.backward()
+                    optimizer.step()
+
+                summary_str = "epoch {}: loss: {}".format(epoch, agg/float(tot))
+                print(summary_str)
         print("finished training model")
         # prediction phase
-        all_examples = self.get_all()
+        all_examples = self.augmentor.test()
         preds = []
         true_labels = []
         data_loader = DataLoader(all_examples)
-        for (idx, example) in enumerate(data_loader):
-            data = example[:3]
-            data = [item[0] for item in data]
-            label = example[3].float()
-            true_labels.append(label)
-            optimizer.zero_grad()
-            representation = self.featurizers[0].forward(data)
-            for featurizer in self.featurizers[1:]:
-                sub_tensor = featurizer.forward(data)
-                representation = torch.cat((representation, sub_tensor), 0)
-            scores = linear_layer(representation)
-            if bool(scores.ge(.88)):
-                preds.append(torch.ones(1))
-            else:
-                preds.append(torch.zeros(1))
+        with tqdm(total =len(all_examples)) as pbar:
+            for (idx, example) in enumerate(data_loader):
+                pbar.update(1)
+                data = example[:3]
+                data = [item[0] for item in data]
+                label = example[3].float()
+                true_labels.append(label)
+                optimizer.zero_grad()
+                representation = self.featurizers[0].forward(data).float()
+                for featurizer in self.featurizers[1:]:
+                    sub_tensor = featurizer.forward(data).float()
+                    representation = torch.cat((representation, sub_tensor), 0)
+                scores = linear_layer(representation)
+                if bool(scores.ge(.88)):
+                    preds.append(torch.ones(1))
+                else:
+                    preds.append(torch.zeros(1))
         # evaluate
         tot = len(preds)
         corr = 0.0
         err_caught = 0.0
-        total_err = num_pos
+        total_err= all_examples.df.filter("error = True").count()
         for (idx, pred) in enumerate(preds):
             truth = true_labels[idx]
             if truth == pred:
@@ -101,6 +106,7 @@ class HoloDetect(ErrorDetection):
                     err_caught += 1
         print("precision is {}".format(corr/tot))
         print("found {} of {} total errors".format(err_caught, total_err))
+        return preds,truth
 
 
 

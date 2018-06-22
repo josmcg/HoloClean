@@ -130,6 +130,15 @@ class Augmentor:
             'ground_truth', session.dataset)
 
 
+    def test(self):
+        pos_set = self.labeled_set.filter("error = True")
+        neg_set = self.labeled_set.filter("error = False")
+        neg_test = self.labeled_set.randomSplit([.001,.999])[0]
+        test = pos_set.union(neg_test)
+        return PySparkDataset(test, "test", self.session)
+
+
+
 class PySparkDataset(Dataset):
     def __init__(self, df, id, session):
         super(Dataset, self).__init__()
